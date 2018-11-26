@@ -70,8 +70,22 @@ pub struct Smbc {
 
 bitflags! {
     pub struct Mode: mode_t {
+        /// Extract file code from mode value
+        const S_IFMT = 0xF000;
+        /// Socket
+        const S_IFSOCK = 0xC000;
+        /// Sym Link
+        const S_IFLNK = 0xA000;
+        /// Regular
+        const S_IFREG = 0x8000;
+        /// Block Device
+        const S_IFBLK = 0x6000;
         /// Dir
-        const S_IFDIR = 0x04000;
+        const S_IFDIR = 0x4000;
+        /// Character Device
+        const S_IFCHR = 0x2000;
+        /// File IO
+        const S_IFIFO = 0x1000;
 
         /// Set user ID on execution
         const S_ISUID = 0x00800;
@@ -1183,9 +1197,9 @@ impl Smbc {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let len = format!("{}", value).len();
         let name = CString::new(format!("{}", attr).as_bytes())?;
-        println!("{:?}", name);
+        trace!("{:?}", name);
         let value = CString::new(format!("{}", value).as_bytes())?;
-        println!("{:?}, len {}", value, len);
+        trace!("{:?}, len {}", value, len);
         //let name = CString::new(name.to_string().as_bytes())?;
         let setxattr_fn = try_ufnrc!(smbc_getFunctionSetxattr <- self.context);
         let res = unsafe {
@@ -1200,7 +1214,6 @@ impl Smbc {
         };
         if (res as i64) < 0 {
             trace!(target: "smbc", "setxattr failed");
-            //println!("Setxattr failed {:?}", res);
             to_result_with_le(res)?;
         }
         Ok(())
