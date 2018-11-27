@@ -35,6 +35,7 @@ use std::rc::Rc;
 use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, EINVAL};
 use nix::fcntl::OFlag;
+use nix::sys::stat::Mode;
 use result::Result;
 use smbclient_sys::*;
 use util::*;
@@ -69,65 +70,6 @@ pub struct Smbc {
 }
 
 bitflags! {
-    pub struct Mode: mode_t {
-        /// Extract file code from mode value
-        const S_IFMT = 0xF000;
-        /// Socket
-        const S_IFSOCK = 0xC000;
-        /// Sym Link
-        const S_IFLNK = 0xA000;
-        /// Regular
-        const S_IFREG = 0x8000;
-        /// Block Device
-        const S_IFBLK = 0x6000;
-        /// Dir
-        const S_IFDIR = 0x4000;
-        /// Character Device
-        const S_IFCHR = 0x2000;
-        /// File IO
-        const S_IFIFO = 0x1000;
-
-        /// Set user ID on execution
-        const S_ISUID = 0x00800;
-        /// Set group ID on execution
-        const S_ISGID = 0x00400;
-        /// Save swapped text (not defined in POSIX)
-        const S_ISVTX = 0x00200;
-
-        /// Read, Write, Execute permission for owner on a file.
-        const S_IRWXU = 0x001C0;
-        /// Read permission for owner
-        const S_IRUSR = 0x00100;
-        /// Write permission for owner
-        const S_IWUSR = 0x00080;
-        /// Execute permission for owner on a file. Or lookup
-        /// (search) permission for owner in directory
-        const S_IXUSR = 0x00040;
-
-
-        /// Read Write Execute permission for group
-        const S_IRWXG = 0x00038;
-        /// Read permission for group
-        const S_IRGRP = 0x00020;
-        /// Write permission for group
-        const S_IWGRP = 0x00010;
-        /// Execute permission for group on a file. Or lookup
-        /// (search) permission for group in directory
-        const S_IXGRP = 0x00008;
-
-        /// Read Write Execute permission for others
-        const S_IRWXO = 0x00007;
-        /// Read permission for others
-        const S_IROTH = 0x00004;
-        /// Write permission for others
-        const S_IWOTH = 0x00002;
-        /// Execute permission for others on a file. Or lookup
-        /// (search) permission for others in directory
-        const S_IXOTH = 0x00001;
-    }
-}
-
-bitflags!{
     pub struct XAttrFlags :i32 {
         //zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
@@ -138,7 +80,7 @@ bitflags!{
     }
 }
 
-bitflags!{
+bitflags! {
     pub struct XAttrMask : i32 {
         const NONE = 0x0000_0000;
         const R = 0x0012_0089;
@@ -154,7 +96,7 @@ bitflags!{
     }
 }
 
-bitflags!{
+bitflags! {
     pub struct DosMode : i32 {
         const READONLY = 0x01;
         const HIDDEN = 0x02;
@@ -169,7 +111,7 @@ bitflags!{
         const REPARSE_POINT = 0x400; //has sym link
         const COMPRESSED = 0x800;
         const OFFLINE = 0x1000; //data moved offline storage
-         const NOT_CONTENT_INDEXED = 0x2000;
+        const NOT_CONTENT_INDEXED = 0x2000;
         const ENCRYPTED = 0x4000; //Encrypted file/dir
         const INTEGRITY_STREAM = 0x8000; //dir or data stream conf with integrity (ReFS vol only)
     }
@@ -365,7 +307,7 @@ pub enum AceAtype {
     DENIED,
 }
 
-bitflags!{
+bitflags! {
     pub struct AceFlag : i32{
         const NONE = 0;
         const SEC_ACE_FLAG_OBJECT_INHERIT = 0x1;
@@ -413,20 +355,12 @@ impl fmt::Display for ACE {
                 ),
             },
             ACE::Named(sid, atype, flags, mask) => match atype {
-                AceAtype::ALLOWED => write!(
-                    f,
-                    "{}:ALLOWED/{:x}/0x{:x}",
-                    sid,
-                    flags.bits(),
-                    mask.bits()
-                ),
-                AceAtype::DENIED => write!(
-                    f,
-                    "{}:DENIED/{:x}/0x{:x}",
-                    sid,
-                    flags.bits(),
-                    mask.bits()
-                ),
+                AceAtype::ALLOWED => {
+                    write!(f, "{}:ALLOWED/{:x}/0x{:x}", sid, flags.bits(), mask.bits())
+                }
+                AceAtype::DENIED => {
+                    write!(f, "{}:DENIED/{:x}/0x{:x}", sid, flags.bits(), mask.bits())
+                }
             },
         }
     }
@@ -587,7 +521,10 @@ impl Smbc {
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
             smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
-            smbc_setOptionUserData(ctx, auth_fn as *const smbclient_sys::smbc_get_auth_data_fn as *mut c_void);
+            smbc_setOptionUserData(
+                ctx,
+                auth_fn as *const smbclient_sys::smbc_get_auth_data_fn as *mut c_void,
+            );
             //smbc_setOptionUseKerberos(ctx, 1);
             //smbc_setOptionFallbackAfterKerberos(ctx, 1);
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
@@ -967,11 +904,7 @@ impl Smbc {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let utimes_fn = try_ufnrc!(smbc_getFunctionUtimes <- self.context);
         unsafe {
-            to_result_with_le(utimes_fn(
-                self.context.0,
-                path.as_ptr(),
-                tbuf
-            ))?;
+            to_result_with_le(utimes_fn(self.context.0, path.as_ptr(), tbuf))?;
         }
         Ok(())
     }

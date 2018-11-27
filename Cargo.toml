@@ -10,7 +10,6 @@ keywords = ["smbclient", "samba", "cifs"]
 description = "type-safe libsmbclient wrapper with std::fs-like interface"
 
 [dependencies]
-#libc = "^0.1.8"
 libc = "0.2.43"
 log = "^0.3.6"
 smbclient-sys = {path = "/home/mzhong215/smbclient-sys" }
