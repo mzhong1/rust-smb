@@ -523,7 +523,7 @@ impl Smbc {
             smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
             smbc_setOptionUserData(
                 ctx,
-                auth_fn as *const smbclient_sys::smbc_get_auth_data_fn as *mut c_void,
+                auth_fn as *const smbc_get_auth_data_fn as *mut c_void,
             );
             //smbc_setOptionUseKerberos(ctx, 1);
             //smbc_setOptionFallbackAfterKerberos(ctx, 1);
