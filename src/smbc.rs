@@ -40,8 +40,8 @@ use smbclient_sys::*;
 use util::*;
 // 1}}}
 
-const SMBC_FALSE: smbc_bool = 0;
-const SMBC_TRUE: smbc_bool = 1;
+//const SMBC_FALSE: smbc_bool = 0;
+//const SMBC_TRUE: smbc_bool = 1;
 
 struct SmbcPtr(*mut SMBCCTX);
 impl Drop for SmbcPtr {
@@ -140,17 +140,17 @@ bitflags!{
 
 bitflags!{
     pub struct XAttrMask : i32 {
-        const NONE = 0x00000000;
-        const R = 0x00120089;
-        const W = 0x00120116;
-        const X = 0x001200a0;
-        const D = 0x00010000;
-        const P = 0x00040000;
-        const O = 0x00080000;
+        const NONE = 0x0000_0000;
+        const R = 0x0012_0089;
+        const W = 0x0012_0116;
+        const X = 0x0012_00a0;
+        const D = 0x0001_0000;
+        const P = 0x0004_0000;
+        const O = 0x0008_0000;
         const N = 0;
-        const READ = 0x001200a9;
-        const CHANGE = 0x001301bf;
-        const FULL = 0x001f01ff;
+        const READ = 0x0012_00a9;
+        const CHANGE = 0x0013_01bf;
+        const FULL = 0x001f_01ff;
     }
 }
 
@@ -397,37 +397,33 @@ impl fmt::Display for ACE {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ACE::Numeric(s, atype, flags, mask) => match atype {
-                ALLOWED => write!(
+                AceAtype::ALLOWED => write!(
                     f,
-                    "{}:{}/{:x}/{}",
+                    "{}:0/{:x}/{}",
                     format!("{}", s),
-                    0,
                     flags.bits(),
                     mask.bits()
                 ),
-                DENIED => write!(
+                AceAtype::DENIED => write!(
                     f,
-                    "{}:{}/{:x}/{}",
+                    "{}:1/{:x}/{}",
                     format!("{}", s),
-                    1,
                     flags.bits(),
                     mask.bits()
                 ),
             },
             ACE::Named(sid, atype, flags, mask) => match atype {
-                ALLOWED => write!(
+                AceAtype::ALLOWED => write!(
                     f,
-                    "{}:{}/{:x}/0x{:x}",
+                    "{}:ALLOWED/{:x}/0x{:x}",
                     sid,
-                    "ALLOWED",
                     flags.bits(),
                     mask.bits()
                 ),
-                DENIED => write!(
+                AceAtype::DENIED => write!(
                     f,
-                    "{}:{}/{:x}/0x{:x}",
+                    "{}:DENIED/{:x}/0x{:x}",
                     sid,
-                    "DENIED",
                     flags.bits(),
                     mask.bits()
                 ),
@@ -468,7 +464,7 @@ pub enum SmbcXAttrValue {
     Signed(i64),     //size
 }
 
-pub fn separated<D: fmt::Display>(iter: &Vec<D>, delimiter: &str) -> String {
+pub fn separated<D: fmt::Display>(iter: &[D], delimiter: &str) -> String {
     let mut delim_separated = String::new();
     for num in &iter[0..iter.len() - 1] {
         delim_separated.push_str(&format!("{}", num));
@@ -573,18 +569,8 @@ impl Drop for SmbcFile {
 
 impl Smbc {
     pub fn new(
-        auth_fn: &extern "C" fn(
+        auth_fn: extern "C" fn(
             ctx: *mut SMBCCTX,
-            srv: *const c_char,
-            shr: *const c_char,
-            wg: *mut c_char,
-            wglen: c_int,
-            un: *mut c_char,
-            unlen: c_int,
-            pw: *mut c_char,
-            pwlen: c_int,
-        ) -> (),
-        init_fn: &extern "C" fn(
             srv: *const c_char,
             shr: *const c_char,
             wg: *mut c_char,
@@ -600,30 +586,29 @@ impl Smbc {
         };
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
-            smbc_setFunctionAuthDataWithContext(ctx, Some(*auth_fn));
-            smbc_setOptionUserData(ctx, auth_fn as *const _ as *mut c_void);
+            smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
+            smbc_setOptionUserData(ctx, auth_fn as *const smbclient_sys::smbc_get_auth_data_fn as *mut c_void);
             //smbc_setOptionUseKerberos(ctx, 1);
             //smbc_setOptionFallbackAfterKerberos(ctx, 1);
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
                 Ok(p) => p,
                 // On Err here you need to call smbc_free
                 Err(e) => {
-                    trace!("smbc_init failed {:?}", e);
+                    trace!(target: "smbc", "smbc_init failed {:?}", e);
                     smbc_free_context(ctx, 1 as c_int);
                     ptr::null_mut()
                 }
             };
             smbc_set_context(ptr);
-            //smbc_init(Some(*init_fn), 0);
             smbc.context = Rc::new(SmbcPtr(ptr));
         }
-        trace!("ctx workgroup {:?}", unsafe {
+        trace!(target: "smbc", "ctx workgroup {:?}", unsafe {
             CString::from_raw((*smbc.context.0).workgroup)
         });
-        trace!("ctx user {:?}", unsafe {
+        trace!(target: "smbc", "ctx user {:?}", unsafe {
             CString::from_raw((*smbc.context.0).user)
         });
-        trace!("ctx netbios {:?}", unsafe {
+        trace!(target: "smbc", "ctx netbios {:?}", unsafe {
             CString::from_raw((*smbc.context.0).netbios_name)
         });
         Ok(smbc)
@@ -653,22 +638,22 @@ impl Smbc {
     ///
     pub fn create(&mut self, path: &Path, mode: Mode) -> Result<SmbcFile> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!("Attempting to retrieve create function");
+        trace!(target: "smbc", "Attempting to retrieve create function");
         let creat_fn = try_ufnrc!(smbc_getFunctionCreat <- self.context);
-        trace!("Sucessfully retrieved create function, attempting to apply function");
+        trace!(target: "smbc", "Sucessfully retrieved create function, attempting to apply function");
         unsafe {
             let fd = result_from_ptr_mut(creat_fn(
                 self.context.0,
                 path.as_ptr(),
                 mode.bits() as mode_t,
             ))?;
-            trace!("Returned value is {:?}", fd);
+            trace!(target: "smbc", "Returned value is {:?}", fd);
             if (fd as i64) < 0 {
-                trace!("Error: neg fd");
+                trace!(target: "smbc", "Error: neg fd");
             }
             Ok(SmbcFile {
                 smbc: Rc::clone(&self.context),
-                fd: fd,
+                fd,
             })
         }
     }
@@ -699,9 +684,9 @@ impl Smbc {
     ///
     pub fn chmod(&self, path: &Path, mode: Mode) -> Result<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!("Attempting to retrieve chmod function");
+        trace!(target: "smbc", "Attempting to retrieve chmod function");
         let chmod_fn = try_ufnrc!(smbc_getFunctionChmod <- self.context);
-        trace!("Sucessfully retrieved chmod function, attempting to apply function");
+        trace!(target: "smbc", "Sucessfully retrieved chmod function, attempting to apply function");
         unsafe {
             to_result_with_le(chmod_fn(
                 self.context.0,
@@ -709,7 +694,7 @@ impl Smbc {
                 mode.bits() as mode_t,
             ))?;
         }
-        trace!("Chmod_fn ran");
+        trace!(target: "smbc", "Chmod_fn ran");
         Ok(())
     }
     ///@ingroup file
@@ -770,9 +755,9 @@ impl Smbc {
     ///
     pub fn open(&self, path: &Path, flags: OFlag, mode: Mode) -> Result<SmbcFile> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!("Attempting to retrieve open function");
+        trace!(target: "smbc", "Attempting to retrieve open function");
         let open_fn = try_ufnrc!(smbc_getFunctionOpen <- self.context);
-        trace!("Sucessfully retrieved open function, attempting to apply function");
+        trace!(target: "smbc", "Sucessfully retrieved open function, attempting to apply function");
 
         let fd = result_from_ptr_mut(unsafe {
             open_fn(self.context.0, path.as_ptr(), flags.bits(), mode.bits())
@@ -782,7 +767,7 @@ impl Smbc {
         }
         Ok(SmbcFile {
             smbc: Rc::clone(&self.context),
-            fd: fd,
+            fd,
         })
     }
 
@@ -805,15 +790,15 @@ impl Smbc {
     ///
     pub fn opendir(&self, path: &Path) -> Result<SmbcDirectory> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!("Attempting to retrieve opendir function");
+        trace!(target: "smbc", "Attempting to retrieve opendir function");
         let opendir_fn = try_ufnrc!(smbc_getFunctionOpendir <- self.context);
         let handle = result_from_ptr_mut(unsafe { opendir_fn(self.context.0, path.as_ptr()) })?;
         if (handle as i64) < 0 {
-            trace!("Error: neg directory fd");
+            trace!(target: "smbc", "Error: neg directory fd");
         }
         Ok(SmbcDirectory {
             smbc: Rc::clone(&self.context),
-            handle: handle,
+            handle,
         })
     }
 
@@ -825,12 +810,12 @@ impl Smbc {
     ///
     pub fn mkdir(&self, path: &Path, mode: Mode) -> Result<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!("Attempting to retrieve mkdir function");
+        trace!(target: "smbc", "Attempting to retrieve mkdir function");
         let mkdir_fn = try_ufnrc!(smbc_getFunctionMkdir <- self.context);
         let handle =
             to_result_with_le(unsafe { mkdir_fn(self.context.0, path.as_ptr(), mode.bits()) })?;
-        if (handle as i64) < 0 {
-            trace!("Error: neg directory fd");
+        if i64::from(handle) < 0 {
+            trace!(target: "smbc", "Error: neg directory fd");
         }
         Ok(())
     }
@@ -914,7 +899,7 @@ impl Smbc {
         let stat_fn = try_ufnrc!(smbc_getFunctionStat <- self.context);
         let res =
             to_result_with_le(unsafe { stat_fn(self.context.0, path.as_ptr(), &mut stat_buf) })?;
-        if (res as i64) < 0 {
+        if i64::from(res) < 0 {
             trace!(target: "smbc", "stat failed");
         }
         Ok(stat_buf)
@@ -978,15 +963,15 @@ impl Smbc {
     ///                  - EINVAL The client library is not properly initialized
     ///                  - EPERM  Permission was denied.
     ///
-    pub fn utimes(&self, path: &Path, tbuf: *mut timeval) -> Result<()> {
+    pub fn utimes(&self, path: &Path, tbuf: &mut timeval) -> Result<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let utimes_fn = try_ufnrc!(smbc_getFunctionUtimes <- self.context);
         unsafe {
-            try!(to_result_with_le(utimes_fn(
+            to_result_with_le(utimes_fn(
                 self.context.0,
                 path.as_ptr(),
                 tbuf
-            )));
+            ))?;
         }
         Ok(())
     }
@@ -1074,9 +1059,9 @@ impl Smbc {
                 0,
             )
         })? + 1;
-        trace!("Sizing buffer to {}", len);
+        trace!(target: "smbc", "Sizing buffer to {}", len);
         let mut value: Vec<u8> = Vec::with_capacity(len as usize);
-        if (len as i64) < 0 {
+        if i64::from(len) < 0 {
             trace!(target: "smbc", "getxattr failed");
         }
         let res = to_result_with_le(unsafe {
@@ -1088,7 +1073,7 @@ impl Smbc {
                 len as _,
             )
         })?;
-        if (res as i64) < 0 {
+        if i64::from(res) < 0 {
             trace!(target: "smbc", "getxattr failed");
         }
         unsafe {
@@ -1117,9 +1102,9 @@ impl Smbc {
                 0,
             )
         })?;
-        trace!("Sizing buffer to {}", len);
+        trace!(target: "smbc", "Sizing buffer to {}", len);
         let mut value: Vec<u8> = Vec::with_capacity(len as usize);
-        if (len as i64) < 0 {
+        if i64::from(len) < 0 {
             trace!(target: "smbc", "listxattr failed");
         }
 
@@ -1131,7 +1116,7 @@ impl Smbc {
                 len as _,
             )
         })?;
-        if (res as i64) < 0 {
+        if i64::from(res) < 0 {
             trace!(target: "smbc", "listxattr failed");
         }
         unsafe {
@@ -1197,9 +1182,9 @@ impl Smbc {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let len = format!("{}", value).len();
         let name = CString::new(format!("{}", attr).as_bytes())?;
-        trace!("{:?}", name);
+        trace!(target: "smbc", "setxattr name {:?}", name);
         let value = CString::new(format!("{}", value).as_bytes())?;
-        trace!("{:?}, len {}", value, len);
+        trace!(target: "smbc", "setxattr value {:?}, len {}", value, len);
         //let name = CString::new(name.to_string().as_bytes())?;
         let setxattr_fn = try_ufnrc!(smbc_getFunctionSetxattr <- self.context);
         let res = unsafe {
@@ -1212,7 +1197,7 @@ impl Smbc {
                 flags.bits() as _,
             )
         };
-        if (res as i64) < 0 {
+        if i64::from(res) < 0 {
             trace!(target: "smbc", "setxattr failed");
             to_result_with_le(res)?;
         }
@@ -1330,7 +1315,7 @@ impl SmbcFile {
         let mut stat_buf: stat = unsafe { zeroed::<stat>() };
         let fstat_fn = try_ufnrc!(smbc_getFunctionFstat <- self.smbc);
         let res = to_result_with_le(unsafe { fstat_fn(self.smbc.0, self.fd, &mut stat_buf) })?;
-        if (res as i64) < 0 {
+        if i64::from(res) < 0 {
             trace!(target: "smbc", "fstat failed");
         }
         Ok(stat_buf)
@@ -1522,9 +1507,9 @@ impl SmbcDirectory {
     ///
     pub fn readdir(&mut self) -> io::Result<SmbcDirEntry> {
         let readdir_fn = try_ufnrc!(smbc_getFunctionReaddir <- self.smbc);
-        trace!("Attempting to apply readdir function {:?}", self.handle);
+        trace!(target: "smbc", "Attempting to apply readdir function {:?}", self.handle);
         let dirent = result_from_ptr_mut(unsafe { readdir_fn(self.smbc.0, self.handle) })?;
-        trace!("readdir function successful!");
+        trace!(target: "smbc", "readdir function successful!");
         if dirent.is_null() {
             let e = Error::new(ErrorKind::Other, "dirent null");
             return Err(e);
@@ -1533,14 +1518,14 @@ impl SmbcDirectory {
         let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
         for x in 0..len {
-            trace!("namelen : {}", len);
-            trace!("{:?}", unsafe { *ptr.offset(x as isize) });
+            trace!(target: "smbc", "namelen : {}", len);
+            trace!(target: "smbc", "{:?}", unsafe { *ptr.offset(x as isize) });
             buff.push(unsafe { *ptr.offset(x as isize) });
         }
-        let name_buff: Vec<u8> = buff.iter().map(|c| c.clone() as u8).collect();
-        trace!("Cursor name {:?}", name_buff);
+        let name_buff: Vec<u8> = buff.iter().map(|c| *c as u8).collect();
+        trace!(target: "smbc", "Cursor name {:?}", name_buff);
         let filename = String::from_utf8_lossy(&name_buff);
-        trace!("Filename: {:?}", filename);
+        trace!(target: "smbc", "Filename: {:?}", filename);
         let d_type = match SmbcType::from(unsafe { (*dirent).smbc_type }) {
             Ok(ty) => ty,
             Err(e) => {
@@ -1554,7 +1539,7 @@ impl SmbcDirectory {
         };
         Ok(SmbcDirEntry {
             s_type: d_type,
-            comment: comment,
+            comment,
             path: PathBuf::from(filename.into_owned()),
         })
     }
@@ -1581,6 +1566,9 @@ impl SmbcDirectory {
             unsafe { lseekdir_fn(self.smbc.0, self.handle, offset as off_t) },
             EINVAL,
         )?;
+        if i64::from(res) < 0 {
+            trace!(target: "smbc", "lseekdir failed");
+        }
         Ok(())
     }
 
@@ -1613,21 +1601,21 @@ impl SmbcDirectory {
 impl Iterator for SmbcDirectory {
     type Item = io::Result<SmbcDirEntry>;
     fn next(&mut self) -> Option<Self::Item> {
-        trace!("Attempting to retrieve readdir function");
-        trace!("Handle: {:?}", self.handle);
+        trace!(target: "smbc", "Attempting to retrieve readdir function");
+        trace!(target: "smbc", "Handle: {:?}", self.handle);
         let readdir_fn = try_iter!(smbc_getFunctionReaddir <- self.smbc);
-        trace!("Readdir retrieved, attempting to apply function");
+        trace!(target: "smbc", "Readdir retrieved, attempting to apply function");
         let dirent =
             match result_from_ptr_mut(unsafe { readdir_fn.unwrap()(self.smbc.0, self.handle) }) {
                 Ok(d) => d,
                 Err(e) => {
-                    trace!("Error! {:?}", e);
+                    trace!(target: "smbc", "Error! {:?}", e);
                     return None;
                 }
             };
-        trace!("Readdir successful!");
+        trace!(target: "smbc", "Readdir successful!");
         if dirent.is_null() {
-            trace!("Directory is NULL!!! T");
+            trace!(target: "smbc", "Directory is NULL!!! T");
             // Null means we're done
             return None;
         }
@@ -1635,31 +1623,31 @@ impl Iterator for SmbcDirectory {
         let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
         for x in 0..len {
-            trace!("namelen : {}", len);
-            trace!("{:?}", unsafe { *ptr.offset(x as isize) });
+            trace!(target: "smbc", "namelen : {}", len);
+            trace!(target: "smbc", "{:?}", unsafe { *ptr.offset(x as isize) });
             buff.push(unsafe { *ptr.offset(x as isize) });
         }
-        let name_buff: Vec<u8> = buff.iter().map(|c| c.clone() as u8).collect();
-        trace!("Cursor name {:?}", name_buff);
+        let name_buff: Vec<u8> = buff.iter().map(|c| *c as u8).collect();
+        trace!(target: "smbc", "Cursor name {:?}", name_buff);
 
         let filename = String::from_utf8_lossy(&name_buff);
-        trace!("Filename: {:?}", filename);
+        trace!(target: "smbc", "Filename: {:?}", filename);
         let s_type = match unsafe { SmbcType::from((*dirent).smbc_type) } {
             Ok(ty) => ty,
             Err(e) => {
                 return Some(Err(e));
             }
         };
-        trace!("FileType: {:?}", s_type);
+        trace!(target: "smbc", "FileType: {:?}", s_type);
         let comment = unsafe {
             CStr::from_ptr((*dirent).comment)
                 .to_string_lossy()
                 .into_owned()
         };
-        trace!("Comment: {:?}", comment);
+        trace!(target: "smbc", "Comment: {:?}", comment);
         Some(Ok(SmbcDirEntry {
             s_type,
-            comment: comment,
+            comment,
             path: PathBuf::from(filename.into_owned()),
         }))
     }
@@ -1708,7 +1696,7 @@ pub fn num_milliseconds(timestamp: timeval) -> i64 {
 }
 
 pub fn num_microseconds(timestamp: timeval) -> i64 {
-    let secs = num_seconds(timestamp) * 1000000;
+    let secs = num_seconds(timestamp) * 1_000_000;
     let usecs = micros_mod_sec(timestamp);
     secs + usecs as i64
 }
@@ -1716,7 +1704,7 @@ pub fn num_microseconds(timestamp: timeval) -> i64 {
 fn micros_mod_sec(timestamp: timeval) -> __suseconds_t {
     if timestamp.tv_sec < 0 && timestamp.tv_usec > 0 {
         //MICROS PER SECOND = 1,000,000
-        timestamp.tv_usec - 1000000 as __suseconds_t
+        timestamp.tv_usec - 1_000_000 as __suseconds_t
     } else {
         timestamp.tv_usec
     }
@@ -1743,7 +1731,7 @@ pub fn stat_milliseconds(timestamp: timespec) -> i64 {
 }
 
 pub fn stat_microseconds(timestamp: timespec) -> i64 {
-    let secs = stat_seconds(timestamp) * 1000000;
+    let secs = stat_seconds(timestamp) * 1_000_000;
     let usecs = stat_micros_mod_sec(timestamp);
     secs + usecs as i64
 }
@@ -1751,7 +1739,7 @@ pub fn stat_microseconds(timestamp: timespec) -> i64 {
 fn stat_micros_mod_sec(timestamp: timespec) -> __syscall_slong_t {
     if timestamp.tv_sec < 0 && timestamp.tv_nsec > 0 {
         //MICROS PER SECOND = 1,000,000
-        timestamp.tv_nsec - 1000000 as __syscall_slong_t
+        timestamp.tv_nsec - 1_000_000 as __syscall_slong_t
     } else {
         timestamp.tv_nsec
     }
