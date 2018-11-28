@@ -71,16 +71,17 @@ pub struct Smbc {
 
 bitflags! {
     pub struct XAttrFlags :i32 {
-        //zeroed
+        ///zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
-        //create new attribute
+        ///create new attribute
         const SMBC_XATTR_FLAG_CREATE = 0x1;
-        //replace attribute
+        ///replace attribute
         const SMBC_XATTR_FLAG_REPLACE = 0x2;
     }
 }
 
 bitflags! {
+    ///ACL attribute mask constants
     pub struct XAttrMask : i32 {
         const NONE = 0x0000_0000;
         const R = 0x0012_0089;
@@ -90,13 +91,17 @@ bitflags! {
         const P = 0x0004_0000;
         const O = 0x0008_0000;
         const N = 0;
+        ///Equivalent to 'RX' permissions
         const READ = 0x0012_00a9;
+        ///Equivalent to RXWD permissions
         const CHANGE = 0x0013_01bf;
+        ///Equivalent to RWXDPO permissions
         const FULL = 0x001f_01ff;
     }
 }
 
 bitflags! {
+    ///Dos Mode constants
     pub struct DosMode : i32 {
         const READONLY = 0x01;
         const HIDDEN = 0x02;
@@ -149,36 +154,40 @@ impl SmbcType {
         }
     }
 }
-/*
-"system.nt_sec_desc.-----"
-"system.dos_attr.-----"
-"system.*"
-"system.*+"
-"system.+"
-"system.nt_sec_desc.revision"
-"system.nt_sec_desc.owner"
-"system.nt_sec_desc.owner+"
-"system.nt_sec_desc.group"
-system.nt_sec_desc.group+
-system.nt_sec_desc.acl.*
-system.nt_sec_desc.*
-system.nt_sec_desc.*+
 
-system.dos_attr.*
-system.dos_attr.mode
-system.dos_attr.c_time
-system.dos_attr.a_time
-system.dos_attr.m_time
-*/
-
+#[derive(Debug, Clone)]
+///
+/// Samba XAttribute names are formatted as such:
+/// system.*
+/// system.*+
+/// system.nt_sec_desc.*
+/// system.nt_sec_desc.*+
+/// system.nt_sec_desc.revision
+/// system.nt_sec_desc.owner
+/// system.nt_sec_desc.owner+
+/// system.nt_sec_desc.group
+/// system.nt_sec_desc.group+
+/// system.nt_sec_desc.acl.*
+/// system.nt_sec_desc.acl.*+
+/// system.nt_sec_desc.acl<SID>
+/// system.nt_sec_desc.acl+<SID>
+/// system.dos_attr.*
+/// system.dos_attr.mode
+/// system.dos_attr.inode
+/// system.dos_attr.size
+/// system.dos_attr.atime
+/// system.dos_attr.mtime
+/// system.dos_attr.ctime
+/// 
 pub enum SmbcXAttr {
     All,
     AllPlus,
-    AllExclude(Vec<SmbcExclude>),     //get xattr only
-    AllExcludePlus(Vec<SmbcExclude>), //get xattr only
+    ///Get xattr only (includes attribute exclusion)
+    AllExclude(Vec<SmbcExclude>),   
+    ///Get xattr only (includes attribute exclusion)
+    AllExcludePlus(Vec<SmbcExclude>), 
     DosAttr(SmbcDosAttr),
     AclAttr(SmbcAclAttr),
-    //TestAll,
 }
 
 impl fmt::Display for SmbcXAttr {
@@ -190,12 +199,11 @@ impl fmt::Display for SmbcXAttr {
             SmbcXAttr::AllExcludePlus(s) => write!(f, "system.*+!{}", separated(s, "!")),
             SmbcXAttr::DosAttr(d) => d.fmt(f),
             SmbcXAttr::AclAttr(a) => a.fmt(f),
-            //SmbcXattr::TestAll => write!(f, "user.*"),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SmbcDosAttr {
     All,
     AllExclude(Vec<SmbcExclude>),
@@ -222,16 +230,22 @@ impl fmt::Display for SmbcDosAttr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SmbcAclAttr {
-    Acl(ACE),        //remove use only
-    AclPlus(String), //remove use only
+    ///remove use only (specific format)
+    Acl(ACE),        
+    ///remove use only (specific format)
+    AclPlus(String),
     AclAll,
     AclAllPlus,
-    AclNone,         //set only use
-    AclNonePlus,     //set only use
-    AclSid(Sid),     //for get use only
-    AclSidPlus(Sid), //for get use only
+    ///set use only
+    AclNone,        
+    ///set use only
+    AclNonePlus,   
+    ///get use only
+    AclSid(Sid),    
+    ///get use only
+    AclSidPlus(Sid),
     All,
     AllPlus,
     AllExclude(Vec<SmbcExclude>),
@@ -269,13 +283,16 @@ impl fmt::Display for SmbcAclAttr {
     }
 }
 
-//Values for input change values
-//REVISION:{}
-//OWNER:{}
-//OWNER+:{}
-//GROUP:{}
-//GROUP:+
-
+///
+/// Values for input change values (for .* calls)
+/// REVISION:{}
+/// OWNER:{}
+/// OWNER+:{}
+/// GROUP:{}
+/// GROUP+:{}
+/// ACL:{}
+/// ACL+:{}
+///
 #[derive(Debug, Clone)]
 pub enum SmbcAclValue {
     Acl(ACE),
@@ -291,7 +308,7 @@ impl fmt::Display for SmbcAclValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             SmbcAclValue::Acl(s) => write!(f, "ACL:{}", format!("{}", s)),
-            SmbcAclValue::AclPlus(s) => write!(f, "ACL:{}", format!("{}", s)),
+            SmbcAclValue::AclPlus(s) => write!(f, "ACL+:{}", format!("{}", s)),
             SmbcAclValue::Group(s) => write!(f, "GROUP:{}", format!("{}", s)),
             SmbcAclValue::GroupPlus(s) => write!(f, "GROUP+:{}", s),
             SmbcAclValue::Revision(i) => write!(f, "REVISION:{}", i),
@@ -302,13 +319,17 @@ impl fmt::Display for SmbcAclValue {
 }
 
 #[derive(Debug, Clone)]
+///The type of an ACE can be either Allowed or Denied to allow/deny access to the SID
 pub enum AceAtype {
     ALLOWED,
     DENIED,
 }
 
 bitflags! {
+    ///Note: currently these flags can only be specified as decimal or hex values. 
+    /// 9 or 2 is usually the value for directories
     pub struct AceFlag : i32{
+        ///This is usually the flag for files
         const NONE = 0;
         const SEC_ACE_FLAG_OBJECT_INHERIT = 0x1;
         const SEC_ACE_FLAG_CONTAINER_INHERIT = 0x2;
@@ -367,6 +388,8 @@ impl fmt::Display for ACE {
 }
 
 #[derive(Debug, Clone)]
+/// DosValue for setxattr does not include size or inode, since
+/// those values are ignored
 pub enum SmbcDosValue {
     MODE(DosMode),
     ATime(u64),
@@ -386,6 +409,7 @@ impl fmt::Display for SmbcDosValue {
 }
 
 #[derive(Debug, Clone)]
+///XAttr value given to setxattr
 pub enum SmbcXAttrValue {
     Ace(ACE), //acl
     AclAll(Vec<SmbcAclValue>),
@@ -431,6 +455,21 @@ impl fmt::Display for SmbcXAttrValue {
 }
 
 #[derive(Debug, Clone)]
+/// Excludable attributes from a .* call are:
+/// nt_sec_desc.revision
+/// nt_sec_desc.owner
+/// nt_sec_desc.group
+/// nt_sec_desc.acl
+/// dos_attr.mode
+/// dos_attr.size
+/// dos_attr.inode
+/// dos_attr.c_time
+/// dos_attr.a_time
+/// dos_attr.m_time
+/// 
+/// PLEASE NOTE that you cannot exclude all sub attributes of 
+/// a .* call. You will get an error
+/// 
 pub enum SmbcExclude {
     Rev,
     Own,
@@ -525,11 +564,8 @@ impl Smbc {
                 ctx,
                 auth_fn as *const smbc_get_auth_data_fn as *mut c_void,
             );
-            //smbc_setOptionUseKerberos(ctx, 1);
-            //smbc_setOptionFallbackAfterKerberos(ctx, 1);
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
                 Ok(p) => p,
-                // On Err here you need to call smbc_free
                 Err(e) => {
                     trace!(target: "smbc", "smbc_init failed {:?}", e);
                     smbc_free_context(ctx, 1 as c_int);
@@ -1096,7 +1132,10 @@ impl Smbc {
     /// As such, please note that your file ACL permissions do in fact effect
     /// whether or not you can make changes to a file as well.
     ///
-    /// NOTE: setxattr on system.nt_sec_desc.group(+) does not work
+    /// NOTE: setxattr on system.nt_sec_desc.group(+), 
+    ///                   system.dos_attr.size,
+    ///                   system.dos_attr.inode, does not work
+    ///       Also, setxattr on system.dos_attr.*
     /// See https://ftp.samba.org/pub/pub/unpacked/SOC/2005/SAMBA_3_0/source/libsmb/libsmbclient.c
     /// for details (It uses the wrong value and therefore tries to change the owner instead
     /// of the group...)
@@ -1237,13 +1276,14 @@ impl SmbcFile {
         Ok(res as off_t)
     }
 
-    /**
-     * fstat
-     * NOTE: stat notes apply
-     * Please note that fstat called on a directory entry will not work
-     * See fstatdir's comments below.
-     * Please use stat for directory meta attributes
-     */
+    ///
+    /// fstat
+    /// NOTE: stat notes apply
+    /// Please note that fstat called on a directory entry will not work
+    /// fstatdir is NOT implemented in the SMB Client library:
+    /// See https://ftp.samba.org/pub/pub/unpacked/SOC/2005/SAMBA_3_0/source/libsmb/libsmbclient.c for details.
+    /// Please use stat for directory meta attributes
+    /// 
     pub fn fstat(&self) -> Result<stat> {
         let mut stat_buf: stat = unsafe { zeroed::<stat>() };
         let fstat_fn = try_ufnrc!(smbc_getFunctionFstat <- self.smbc);
@@ -1691,3 +1731,4 @@ pub fn print_timespec_secs(timestamp: timespec) {
     let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
     println!("{:?}", datetime);
 }
+
