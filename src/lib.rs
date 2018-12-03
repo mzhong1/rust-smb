@@ -34,6 +34,8 @@
 extern crate log;
 #[macro_use]
 extern crate bitflags;
+#[macro_use]
+extern crate nom;
 extern crate chrono;
 extern crate libc;
 extern crate nix;
@@ -47,6 +49,9 @@ pub mod result;
 
 /// Main API module (reexported later)
 pub mod smbc;
+pub mod parser;
 
 pub use result::*;
 pub use smbc::*;
+
+pub use parser::*;

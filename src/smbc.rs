@@ -56,13 +56,14 @@ impl Drop for SmbcPtr {
     }
 }
 
-fn check_mut_ptr<T>(ptr: *mut T) -> io::Result<*mut T> {
+//Same as result from ptr mut
+/*fn check_mut_ptr<T>(ptr: *mut T) -> io::Result<*mut T> {
     if ptr.is_null() {
         Err(Error::last_os_error())
     } else {
         Ok(ptr)
     }
-}
+}*/
 
 #[derive(Clone)]
 pub struct Smbc {
@@ -90,7 +91,7 @@ bitflags! {
         const D = 0x0001_0000;
         const P = 0x0004_0000;
         const O = 0x0008_0000;
-        const N = 0;
+        const N = 0x0000_0000;
         ///Equivalent to 'RX' permissions
         const READ = 0x0012_00a9;
         ///Equivalent to RXWD permissions
@@ -98,6 +99,46 @@ bitflags! {
         ///Equivalent to RWXDPO permissions
         const FULL = 0x001f_01ff;
     }
+}
+
+impl fmt::Display for XAttrMask {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut buff = String::new();        
+        if self.contains(XAttrMask::FULL) {
+            buff.push_str("FULL");
+            return write!(f, "{}", buff);
+        }else if self.contains(XAttrMask::CHANGE) {
+            buff.push_str("CHANGE");
+            return write!(f, "{}", buff);
+        }
+        else if self.contains(XAttrMask::READ){
+            buff.push_str("READ");
+            return write!(f, "{}", buff);
+        }
+        else if self.contains(XAttrMask::O) {
+            buff.push_str("O");
+        }
+        else if self.contains(XAttrMask::P) {
+            buff.push_str("P");
+        }
+        else if self.contains(XAttrMask::D) {
+            buff.push_str("D");
+        }
+        else if self.contains(XAttrMask::X) {
+            buff.push_str("X");
+        }
+        else if self.contains(XAttrMask::W) {
+            buff.push_str("W");
+        }
+        else if self.contains(XAttrMask::R) {
+            buff.push_str("R");
+        }
+        else
+        {
+            buff.push_str("N");
+        }
+        write!(f, "{}", buff)
+    }    
 }
 
 bitflags! {
@@ -155,7 +196,7 @@ impl SmbcType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 ///
 /// Samba XAttribute names are formatted as such:
 /// system.*
@@ -178,14 +219,14 @@ impl SmbcType {
 /// system.dos_attr.atime
 /// system.dos_attr.mtime
 /// system.dos_attr.ctime
-/// 
+///
 pub enum SmbcXAttr {
     All,
     AllPlus,
     ///Get xattr only (includes attribute exclusion)
-    AllExclude(Vec<SmbcExclude>),   
+    AllExclude(Vec<SmbcExclude>),
     ///Get xattr only (includes attribute exclusion)
-    AllExcludePlus(Vec<SmbcExclude>), 
+    AllExcludePlus(Vec<SmbcExclude>),
     DosAttr(SmbcDosAttr),
     AclAttr(SmbcAclAttr),
 }
@@ -203,9 +244,10 @@ impl fmt::Display for SmbcXAttr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SmbcDosAttr {
     All,
+    ///Get xattr only
     AllExclude(Vec<SmbcExclude>),
     Atime,
     Ctime,
@@ -230,25 +272,27 @@ impl fmt::Display for SmbcDosAttr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SmbcAclAttr {
     ///remove use only (specific format)
-    Acl(ACE),        
+    Acl(ACE),
     ///remove use only (specific format)
-    AclPlus(String),
+    AclPlus(ACE),
     AclAll,
     AclAllPlus,
     ///set use only
-    AclNone,        
+    AclNone,
     ///set use only
-    AclNonePlus,   
+    AclNonePlus,
     ///get use only
-    AclSid(Sid),    
+    AclSid(Sid),
     ///get use only
     AclSidPlus(Sid),
     All,
     AllPlus,
+    /// get use only
     AllExclude(Vec<SmbcExclude>),
+    /// get use only
     AllExcludePlus(Vec<SmbcExclude>),
     Group,
     GroupPlus,
@@ -293,7 +337,7 @@ impl fmt::Display for SmbcAclAttr {
 /// ACL:{}
 /// ACL+:{}
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SmbcAclValue {
     Acl(ACE),
     AclPlus(ACE),
@@ -318,7 +362,7 @@ impl fmt::Display for SmbcAclValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 ///The type of an ACE can be either Allowed or Denied to allow/deny access to the SID
 pub enum AceAtype {
     ALLOWED,
@@ -326,7 +370,7 @@ pub enum AceAtype {
 }
 
 bitflags! {
-    ///Note: currently these flags can only be specified as decimal or hex values. 
+    ///Note: currently these flags can only be specified as decimal or hex values.
     /// 9 or 2 is usually the value for directories
     pub struct AceFlag : i32{
         ///This is usually the flag for files
@@ -338,7 +382,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Sid(pub Vec<u64>);
 impl fmt::Display for Sid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -350,10 +394,39 @@ impl fmt::Display for Sid {
     }
 }
 
-#[derive(Debug, Clone)]
+///
+/// Used for parsing individual ACL:SID output from getxattr
+/// 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum SidType
+{
+    Numeric(Option<Sid>), 
+    Named(Option<String>),
+}
+impl fmt::Display for SidType{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+       match self {
+           SidType::Numeric(Some(s)) => s.fmt(f),
+           SidType::Numeric(None) => write!(f, ""),
+           SidType::Named(Some(s)) => write!(f, "{}", s),
+           SidType::Named(None) => write!(f, ""),
+       }
+    }
+}
+
+///
+/// Please NOTE that we use SidType for holding the Sid Value
+/// Which means the SID might be NONE (Please note that this should
+/// ONLY be the case when parsing individual ACL:SID values from getxattr, in
+/// which case you should manually set the SID.  Also, individual parsers will
+/// always return NUMERIC ACE)
+/// 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ACE {
-    Numeric(Sid, AceAtype, AceFlag, XAttrMask),
-    Named(String, AceAtype, AceFlag, XAttrMask),
+    Numeric(SidType, AceAtype, AceFlag, XAttrMask),
+    /// Please note that the String input for xattribute mask only works on the
+    /// inputs FULL, CHANGE, and READ
+    Named(SidType, AceAtype, AceFlag, String),
 }
 
 impl fmt::Display for ACE {
@@ -377,24 +450,27 @@ impl fmt::Display for ACE {
             },
             ACE::Named(sid, atype, flags, mask) => match atype {
                 AceAtype::ALLOWED => {
-                    write!(f, "{}:ALLOWED/{:x}/0x{:x}", sid, flags.bits(), mask.bits())
+                    write!(f, "{}:ALLOWED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
                 }
                 AceAtype::DENIED => {
-                    write!(f, "{}:DENIED/{:x}/0x{:x}", sid, flags.bits(), mask.bits())
+                    write!(f, "{}:DENIED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
                 }
             },
         }
     }
 }
 
-#[derive(Debug, Clone)]
-/// DosValue for setxattr does not include size or inode, since
-/// those values are ignored
+#[derive(Debug, Clone, Eq, PartialEq)]
+/// PLEASE Note that INode and Size values are ignored in setxattr calls
+/// INode and Size are used PURELY for parsing .* calls (Since there is
+/// no point in using them to change xattr values)
 pub enum SmbcDosValue {
     MODE(DosMode),
     ATime(u64),
     CTime(u64),
     MTime(u64),
+    INode(u64),
+    Size(i64),
 }
 
 impl fmt::Display for SmbcDosValue {
@@ -404,22 +480,32 @@ impl fmt::Display for SmbcDosValue {
             SmbcDosValue::ATime(m) => write!(f, "A_TIME:{}", m),
             SmbcDosValue::CTime(m) => write!(f, "C_TIME:{}", m),
             SmbcDosValue::MTime(m) => write!(f, "M_TIME:{}", m),
+            SmbcDosValue::INode(m) => write!(f, "INODE:{}", m),
+            SmbcDosValue::Size(m) => write!(f, "SIZE:{}", m),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 ///XAttr value given to setxattr
+/// Please note that Revision, inode, size, and group cannot be changed individually...
+/// and inode and size cannot be changed at all
+/// 
+/// Another thing to note: When parsing individual getxattr input to SmbcXAttrValue,
+/// the Sid Value is not set (due to how getxattr of acl:sid outputs)
+/// You will need to set that yourself
+/// the parser will by default always return NUMERIC ACE (if given individual ACE to
+/// parse from getxattr)
 pub enum SmbcXAttrValue {
-    Ace(ACE), //acl
-    AclAll(Vec<SmbcAclValue>),
-    AcePlus(ACE), //acl+
-    DosAll(Vec<SmbcDosValue>),
+    Ace(ACE), //acl, acl+
+    AclAll(Vec<SmbcAclValue>), //acl.*, nt_sec_desc.*
+    DosAll(Vec<SmbcDosValue>), //dos_attr.*
     Sid(Sid),        //owner, group
-    SidPlus(String), //owner, group+
+    SidPlus(String), //owner+, group+
     Unsigned(u64),   //revision, a_time, c_time, m_time, inode
     Mode(DosMode),   //mode
-    Signed(i64),     //size
+    Signed(i64),    //size
+    All(Vec<SmbcAclValue>, Vec<SmbcDosValue>), //all attribute values (system.*)
 }
 
 pub fn separated<D: fmt::Display>(iter: &[D], delimiter: &str) -> String {
@@ -436,13 +522,19 @@ impl fmt::Display for SmbcXAttrValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             SmbcXAttrValue::Ace(s) => s.fmt(f),
-            SmbcXAttrValue::AcePlus(s) => s.fmt(f),
             SmbcXAttrValue::AclAll(s) => {
                 let mut comma_separated = separated(s, "\n");
                 write!(f, "{}", comma_separated)
             }
             SmbcXAttrValue::DosAll(s) => {
                 let mut comma_separated = separated(s, "\t");
+                write!(f, "{}", comma_separated)
+            }
+            SmbcXAttrValue::All(a, d) => {
+                let mut comma_separated = separated(a, "\n");
+                comma_separated.push_str(",");
+                let mut dcomma_separated = separated(d, "\t");
+                comma_separated.push_str(&dcomma_separated);
                 write!(f, "{}", comma_separated)
             }
             SmbcXAttrValue::Sid(s) => s.fmt(f),
@@ -454,7 +546,7 @@ impl fmt::Display for SmbcXAttrValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 /// Excludable attributes from a .* call are:
 /// nt_sec_desc.revision
 /// nt_sec_desc.owner
@@ -466,10 +558,10 @@ impl fmt::Display for SmbcXAttrValue {
 /// dos_attr.c_time
 /// dos_attr.a_time
 /// dos_attr.m_time
-/// 
-/// PLEASE NOTE that you cannot exclude all sub attributes of 
+///
+/// PLEASE NOTE that you cannot exclude all sub attributes of
 /// a .* call. You will get an error
-/// 
+///
 pub enum SmbcExclude {
     Rev,
     Own,
@@ -560,10 +652,7 @@ impl Smbc {
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
             smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
-            smbc_setOptionUserData(
-                ctx,
-                auth_fn as *const smbc_get_auth_data_fn as *mut c_void,
-            );
+            smbc_setOptionUserData(ctx, auth_fn as *const smbc_get_auth_data_fn as *mut c_void);
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
                 Ok(p) => p,
                 Err(e) => {
@@ -936,11 +1025,11 @@ impl Smbc {
     ///                  - EINVAL The client library is not properly initialized
     ///                  - EPERM  Permission was denied.
     ///
-    pub fn utimes(&self, path: &Path, tbuf: &mut timeval) -> Result<()> {
+    pub fn utimes(&self, path: &Path, tbuf: &mut Vec<timeval>) -> Result<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let utimes_fn = try_ufnrc!(smbc_getFunctionUtimes <- self.context);
         unsafe {
-            to_result_with_le(utimes_fn(self.context.0, path.as_ptr(), tbuf))?;
+            to_result_with_le(utimes_fn(self.context.0, path.as_ptr(), tbuf.as_mut_ptr()))?;
         }
         Ok(())
     }
@@ -1014,6 +1103,12 @@ impl Smbc {
     ///                  - ENOTSUP The referenced file system does not support
     ///                            extended attributes
     ///
+    /// NOTE:
+    ///     system.nt_sec_desc.acl(+):sid will ONLY return the acetype, aceflag, and 
+    ///     xattr.  When parsing the output to SmbcXAttrValue, you must set the
+    ///     SidType Sid manually, otherwise it will be NONE.  Also, the parser will
+    ///     always return a NUMERIC ACE
+    /// 
     pub fn getxattr(&self, path: &Path, attr: &SmbcXAttr) -> Result<Vec<u8>> {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let name = CString::new(format!("{}", attr).as_bytes())?;
@@ -1104,6 +1199,10 @@ impl Smbc {
     /// In order for removexattr to run, you must have in your config file:
     /// store dos attributes = yes and vfs objects = yes
     /// or vfs objects = yes
+    /// 
+    /// PLEASE NOTE: NAMED attributes for removexattr will only accept the fields 
+    /// "FULL", "CHANGE", and "READ" (same as setxattr), otherwise it will segfault
+    /// (There's nothing I can do about this, Samba manages to get a segfault somehow...)
     ///
     /// Oh, and the reason why revision, owner(+), group(+) don't work is because of how sec_desc_parse works.  
     /// See https://ftp.samba.org/pub/pub/unpacked/SOC/2005/SAMBA_3_0/source/libsmb/libsmbclient.c
@@ -1132,10 +1231,12 @@ impl Smbc {
     /// As such, please note that your file ACL permissions do in fact effect
     /// whether or not you can make changes to a file as well.
     ///
-    /// NOTE: setxattr on system.nt_sec_desc.group(+), 
+    /// NOTE: setxattr on system.nt_sec_desc.group(+),
     ///                   system.dos_attr.size,
-    ///                   system.dos_attr.inode, does not work
-    ///       Also, setxattr on system.dos_attr.*
+    ///                   system.dos_attr.inode, do not work
+    ///        Also, setxattr on system.dos_attr.* (it sets everything except size and inode...)
+    ///        Also, NAMED ATTRIBUTES for ACL's only work with the mask inputs
+    ///        FULL, READ, and CHANGE.  
     /// See https://ftp.samba.org/pub/pub/unpacked/SOC/2005/SAMBA_3_0/source/libsmb/libsmbclient.c
     /// for details (It uses the wrong value and therefore tries to change the owner instead
     /// of the group...)
@@ -1283,7 +1384,7 @@ impl SmbcFile {
     /// fstatdir is NOT implemented in the SMB Client library:
     /// See https://ftp.samba.org/pub/pub/unpacked/SOC/2005/SAMBA_3_0/source/libsmb/libsmbclient.c for details.
     /// Please use stat for directory meta attributes
-    /// 
+    ///
     pub fn fstat(&self) -> Result<stat> {
         let mut stat_buf: stat = unsafe { zeroed::<stat>() };
         let fstat_fn = try_ufnrc!(smbc_getFunctionFstat <- self.smbc);
@@ -1731,4 +1832,3 @@ pub fn print_timespec_secs(timestamp: timespec) {
     let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
     println!("{:?}", datetime);
 }
-
