@@ -14,11 +14,6 @@ libc = "~0.2"
 log = "~0.4"
 smbclient-sys = {path = "/home/mzhong215/smbclient-sys" }
 bitflags = "~1.0"
-<<<<<<< HEAD
 nix = "0.11"
 chrono = "0.4.6"
 nom = "4.1.1"
-=======
-nix = "~0.11"
-chrono = "~0.4"
->>>>>>> c0f14cc1c4a9fa68d9ce23e3e7330f39596d85e2
