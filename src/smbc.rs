@@ -650,11 +650,6 @@ impl Smbc {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
             smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
             smbc_setOptionUserData(ctx, auth_fn as *const smbc_get_auth_data_fn as *mut c_void);
-<<<<<<< HEAD
-=======
-            //smbc_setOptionUseKerberos(ctx, 1);
-            //smbc_setOptionFallbackAfterKerberos(ctx, 1);
->>>>>>> c0f14cc1c4a9fa68d9ce23e3e7330f39596d85e2
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
                 Ok(p) => p,
                 Err(e) => {
