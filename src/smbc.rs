@@ -1179,8 +1179,8 @@ impl Smbc {
 
     ///
     /// NOTE: removexattr only works for the following inputs:
-    /// system.nt_sec_sesc.*
-    /// system.nt_sec_sesc.*+
+    /// system.nt_sec_desc.*
+    /// system.nt_sec_desc.*+
     /// system.nt_sec_desc.acl
     /// system.nt_sec_desc.acl+
     ///
