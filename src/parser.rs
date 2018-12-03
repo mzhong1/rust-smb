@@ -1087,7 +1087,7 @@ named!(mtime_all_parse(CompleteByteSlice) -> SmbcDosValue,
         tag!("M_TIME:") >>
         n: dec_num >>
         (
-            SmbcDosValue::ATime(n)
+            SmbcDosValue::MTime(n)
         )
     )
 );
@@ -1098,7 +1098,7 @@ named!(ctime_all_parse(CompleteByteSlice) -> SmbcDosValue,
         tag!("C_TIME:") >>
         n: dec_num >>
         (
-            SmbcDosValue::ATime(n)
+            SmbcDosValue::CTime(n)
         )
     )
 );
