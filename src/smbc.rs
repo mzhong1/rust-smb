@@ -781,7 +781,6 @@ impl Smbc {
     ///                  file is created.  It  is  modified  by  the
     ///                  process's umask in the usual way: the permissions
     ///                  of the created file are (mode & ~umask)
-    ///
     ///                  Not currently use, but there for future use.
     ///                  We will map this to SYSTEM, HIDDEN, etc bits
     ///                  that reverses the mapping that smbc_fstat does.
@@ -807,7 +806,6 @@ impl Smbc {
     ///                  auth_fn in the smbc_init call, fail, this call will
     ///                  try again with an empty username and password. This
     ///                  often gets mapped to the guest account on some machines.
-    ///
     ///                  Mode doesn't DO anything for file permissions.
     ///                  the mode variable is never used internally,
     ///                  so the file is always opened with default, or
@@ -1036,18 +1034,15 @@ impl Smbc {
 
     ///Get extended attributes for a file.
     ///
-    /// @param url       The smb url of the file or directory to get extended
+    /// @param path       The smb url of the file or directory to get extended
     ///                  attributes for.
     ///
-    /// @param name      The name of an attribute to be retrieved.  Names are of
+    /// @param attr      The name of an attribute to be retrieved.  Names are of
     ///                  one of the following forms:
-    ///
     ///                     system.nt_sec_desc.<attribute name>
     ///                     system.nt_sec_desc.*
     ///                     system.nt_sec_desc.*+
-    ///
     ///                  where <attribute name> is one of:
-    ///
     ///                     revision
     ///                     owner
     ///                     owner+
@@ -1055,23 +1050,18 @@ impl Smbc {
     ///                     group+
     ///                     acl:<sid>
     ///                     acl+:<sid>
-    ///
     ///                  In the forms "system.nt_sec_desc.*" and
     ///                 "system.nt_sec_desc.*+", the asterisk and plus signs are
     ///                 literal, i.e. the string is provided exactly as shown, an
     ///                 the value parameter will return a complete security
     ///                  commas, or newlines (not spaces!).
-    ///
     ///                 The plus sign ('+') indicates that SIDs should be mapped
     ///                  to names.  Without the plus sign, SIDs are not mapped;
     ///                 rather they are simply converted to a string format.
-    ///                 
     ///                 or:
     ///                     system.dos_attr.<attribute name>
     ///                     system.dos_attr.*
-    ///
     ///                  where <attribute name> is one of:
-    ///
     ///                     mode
     ///                     c_time
     ///                     a_time
@@ -1081,13 +1071,11 @@ impl Smbc {
     ///                 or
     ///                     system.*
     ///                     system.*+
-    ///
     ///                 The * attribute will get all values of a set (so system.* will
     ///                 return all DOS and ACL attributes, system.dos_attr.* all DOS
     ///                 attributes, etc.).  The commands with * may also exclude elements
     ///                 with ! delimiters (ex: system.*!nt_sec_desc.acl!dos_attr.mode will
     ///                 return all attributes excluding acl and mode)
-    ///
     ///                 Use the SmbcXattr enum to build your input.
     ///
     /// @return          0 on success, < 0 on error with errno set:

@@ -20,15 +20,10 @@
 //!
 //! It provides basic `std::fs`-like API to access SMB/CIFS file shares
 //!
-//! Primary entrypoint is [`SmbClient`](struct.SmbClient.html) struct.
+//! Primary entrypoint is [`Smbc`](struct.Smbc.html) struct.
 //!
-//! Files are represented by [`SmbFile`](struct.SmbFile.html).
+//! Files are represented by [`SmbcFile`](struct.SmbcFile.html).
 //!
-//! Basic example:
-//! ```rust
-//! fn load
-//! # fn main() {}
-//! ```
 
 #[macro_use]
 extern crate log;

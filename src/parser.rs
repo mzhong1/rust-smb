@@ -1,5 +1,5 @@
 use nom::{
-    AsBytes, AtEof, FindSubstring, FindToken, InputLength, InputTake, InputTakeAtPosition, Offset, anychar, is_digit, is_hex_digit
+    AsBytes, anychar, is_digit, is_hex_digit
 };
 use smbc::*;
 use nom::types::CompleteByteSlice;
