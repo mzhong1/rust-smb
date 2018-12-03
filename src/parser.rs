@@ -16,12 +16,12 @@ INODE:415544
 
 
 REVISION:1,
-OWNER:TESTING\\mzhong215,
-GROUP:Unix Group\\mzhong215,
+OWNER:TESTING\\superuser123,
+GROUP:Unix Group\\superuser123,
 ACL:\\Everyone:0/0/0x00120089,
 ACL:Unix Group\\adm:0/3/0x001f01ff,
-ACL:Unix Group\\mzhong215:0/0/0x001f019f,
-ACL:TESTING\\mzhong215:0/0/0x001f019f,
+ACL:Unix Group\\superuser123:0/0/0x001f019f,
+ACL:TESTING\\superuser123:0/0/0x001f019f,
 MODE:0x80,SIZE:0,A_TIME:1543599732,
 M_TIME:1543599732,C_TIME:1543599732,
 INODE:393467\u{0}
@@ -166,11 +166,11 @@ fn test_mode_all_parse() {
 
 #[test]
 fn test_groupplus_all_parse() {
-    let test = "GROUP:Unix Group\\mzhong215".to_string();
+    let test = "GROUP:Unix Group\\superuser123".to_string();
     let bytes = test.as_bytes();
     let mode = groupplus_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test groupplus all parse {:?}", mode);
-    let test = "GROUP:TESTING\\mzhong215,".to_string();
+    let test = "GROUP:TESTING\\superuser123,".to_string();
     let bytes = test.as_bytes();
     let mode = groupplus_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test groupplus all parse {:?}", mode);
@@ -190,7 +190,7 @@ fn test_group_all_parse() {
     let bytes = test.as_bytes();
     let mode = group_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test group all parse {:?}", mode);
-    let test = "GROUP:Unix Group\\mzhong215,".to_string();
+    let test = "GROUP:Unix Group\\superuser123,".to_string();
     let bytes = test.as_bytes();
     let mode = group_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test group all parse {:?}", mode);
@@ -198,11 +198,11 @@ fn test_group_all_parse() {
 
 #[test]
 fn test_ownerplus_all_parse() {
-    let test = "OWNER:TESTING\\mzhong215".to_string();
+    let test = "OWNER:TESTING\\superuser123".to_string();
     let bytes = test.as_bytes();
     let mode = ownerplus_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test ownerplus all parse {:?}", mode);
-    let test = "OWNER:TESTING\\mzhong215,OWNER:Testing".to_string();
+    let test = "OWNER:TESTING\\superuser123,OWNER:Testing".to_string();
     let bytes = test.as_bytes();
     let mode = ownerplus_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test ownerplus all parse {:?}", mode);
@@ -218,7 +218,7 @@ fn test_ownersid_all_parse() {
 
 #[test]
 fn test_owner_all_parse() {
-    let test = "OWNER:TESTING\\mzhong215".to_string();
+    let test = "OWNER:TESTING\\superuser123".to_string();
     let bytes = test.as_bytes();
     let mode = owner_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test owner all parse {:?}", mode);
@@ -247,7 +247,7 @@ fn test_nt_sec_num_xattr_parse() {
 
 #[test]
 fn test_nt_sec_name_xattr_parse() {
-    let test = "REVISION:1,OWNER:TESTING\\mzhong215,GROUP:Unix Group\\mzhong215,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f019f,ACL:TESTING\\mzhong215:0/0/0x001f019f".to_string();
+    let test = "REVISION:1,OWNER:TESTING\\superuser123,GROUP:Unix Group\\superuser123,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f019f,ACL:TESTING\\superuser123:0/0/0x001f019f".to_string();
     let bytes = test.as_bytes();
     let val = nt_sec_name_xattr_parse(CompleteByteSlice(&bytes))
         .unwrap()
@@ -262,7 +262,7 @@ fn test_nt_sec_xattr_parse() {
     let bytes = test.as_bytes();
     let val = nt_sec_xattr_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test nt sec xattr parse {:?}", val);
-    let test = "REVISION:1,OWNER:TESTING\\mzhong215,GROUP:Unix Group\\mzhong215,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f019f,ACL:TESTING\\mzhong215:0/0/0x001f019f".to_string();
+    let test = "REVISION:1,OWNER:TESTING\\superuser123,GROUP:Unix Group\\superuser123,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f019f,ACL:TESTING\\superuser123:0/0/0x001f019f".to_string();
     let bytes = test.as_bytes();
     let val = nt_sec_xattr_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test nt sec xattr parse {:?}", val);
@@ -279,7 +279,7 @@ fn test_nt_sec_num_all_parse() {
 
 #[test]
 fn test_nt_sec_name_all_parse() {
-    let test = "REVISION:1,OWNER:TESTING\\mzhong215,GROUP:Unix Group\\mzhong215,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f019f,ACL:TESTING\\mzhong215:0/0/0x001f019f".to_string();
+    let test = "REVISION:1,OWNER:TESTING\\superuser123,GROUP:Unix Group\\superuser123,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f019f,ACL:TESTING\\superuser123:0/0/0x001f019f".to_string();
     let bytes = test.as_bytes();
     let val = nt_sec_name_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test nt sec name all parse {:?}", val);
@@ -292,7 +292,7 @@ fn test_nt_sec_all_parse() {
     let bytes = test.as_bytes();
     let val = nt_sec_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test nt sec all parse {:?}", val);
-    let test = "REVISION:1,OWNER:TESTING\\mzhong215,GROUP:Unix Group\\mzhong215,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f019f,ACL:TESTING\\mzhong215:0/0/0x001f019f".to_string();
+    let test = "REVISION:1,OWNER:TESTING\\superuser123,GROUP:Unix Group\\superuser123,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f019f,ACL:TESTING\\superuser123:0/0/0x001f019f".to_string();
     let bytes = test.as_bytes();
     let val = nt_sec_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test nt sec all parse {:?}", val);
@@ -316,7 +316,7 @@ fn test_ace_all_parse() {
     let bytes = test.as_bytes();
     let val = ace_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test ace all_parse {:?}", val);
-    let test = "ACL:\\Everyone:0/0/0x001f01ff,ACL:Unix Group\\adm:0/0/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f01ff,ACL:TESTING\\mzhong215:0/0/0x001f01ff".to_string();
+    let test = "ACL:\\Everyone:0/0/0x001f01ff,ACL:Unix Group\\adm:0/0/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f01ff,ACL:TESTING\\superuser123:0/0/0x001f01ff".to_string();
     let bytes = test.as_bytes();
     let val = ace_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test ace all_parse {:?}", val);
@@ -328,7 +328,7 @@ fn test_acl_xattr_parse() {
     let bytes = test.as_bytes();
     let val = acl_xattr_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test acl xattr_parse {:?}", val);
-    let test = "\\Everyone:0/0/0x001f01ff,Unix Group\\adm:0/0/0x001f01ff,Unix Group\\mzhong215:0/0/0x001f01ff,TESTING\\mzhong215:0/0/0x001f01ff".to_string();
+    let test = "\\Everyone:0/0/0x001f01ff,Unix Group\\adm:0/0/0x001f01ff,Unix Group\\superuser123:0/0/0x001f01ff,TESTING\\superuser123:0/0/0x001f01ff".to_string();
     let bytes = test.as_bytes();
     let val = acl_xattr_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test acl xattr_parse {:?}", val);
@@ -352,7 +352,7 @@ fn test_aceall_xattr_parse() {
     let bytes = test.as_bytes();
     let val = aceall_xattr_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test aceall xattr_parse {:?}", val);
-    let test = "\\Everyone:0/0/0x001f01ff,Unix Group\\adm:0/0/0x001f01ff,Unix Group\\mzhong215:0/0/0x001f01ff,TESTING\\mzhong215:0/0/0x001f01ff".to_string();
+    let test = "\\Everyone:0/0/0x001f01ff,Unix Group\\adm:0/0/0x001f01ff,Unix Group\\superuser123:0/0/0x001f01ff,TESTING\\superuser123:0/0/0x001f01ff".to_string();
     let bytes = test.as_bytes();
     let val = aceall_xattr_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test aceall xattr_parse {:?}", val);
@@ -470,7 +470,7 @@ fn test_system_all_parse() {
     let bytes = test.as_bytes();
     let val = system_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test system_all_parse {:?}", val);
-    let test = "REVISION:1,OWNER:Unix Group\\adm,GROUP:Unix Group\\mzhong215,ACL:\\Everyone:0/0/0x001f01ff,ACL:Unix Group\\adm:0/0/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f01ff,ACL:TESTING\\mzhong215:0/0/0x001f01ff,MODE:0x20,SIZE:0,A_TIME:1543337349,M_TIME:1543337349,C_TIME:1543337349,INODE:393825".to_string();
+    let test = "REVISION:1,OWNER:Unix Group\\adm,GROUP:Unix Group\\superuser123,ACL:\\Everyone:0/0/0x001f01ff,ACL:Unix Group\\adm:0/0/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f01ff,ACL:TESTING\\superuser123:0/0/0x001f01ff,MODE:0x20,SIZE:0,A_TIME:1543337349,M_TIME:1543337349,C_TIME:1543337349,INODE:393825".to_string();
     let bytes = test.as_bytes();
     let val = system_all_parse(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test system_all_parse {:?}", val);
@@ -515,7 +515,7 @@ fn test_xattr_parser() {
     let bytes = test.as_bytes();
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser System.* {:?}", val);
-    let test = "REVISION:1,OWNER:Unix Group\\adm,GROUP:Unix Group\\mzhong215,ACL:\\Everyone:0/0/0x001f01ff,ACL:Unix Group\\adm:0/0/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f01ff,ACL:TESTING\\mzhong215:0/0/0x001f01ff,MODE:0x20,SIZE:0,A_TIME:1543337349,M_TIME:1543337349,C_TIME:1543337349,INODE:393825".to_string();
+    let test = "REVISION:1,OWNER:Unix Group\\adm,GROUP:Unix Group\\superuser123,ACL:\\Everyone:0/0/0x001f01ff,ACL:Unix Group\\adm:0/0/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f01ff,ACL:TESTING\\superuser123:0/0/0x001f01ff,MODE:0x20,SIZE:0,A_TIME:1543337349,M_TIME:1543337349,C_TIME:1543337349,INODE:393825".to_string();
     let bytes = test.as_bytes();
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser System.* {:?}", val);
@@ -527,7 +527,7 @@ fn test_xattr_parser() {
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser Dos_Attr.* {:?}", val);
     //Acl.*
-    let test = "\\Everyone:0/0/0x001f01ff,Unix Group\\adm:0/0/0x001f01ff,Unix Group\\mzhong215:0/0/0x001f01ff,TESTING\\mzhong215:0/0/0x001f01ff".to_string();
+    let test = "\\Everyone:0/0/0x001f01ff,Unix Group\\adm:0/0/0x001f01ff,Unix Group\\superuser123:0/0/0x001f01ff,TESTING\\superuser123:0/0/0x001f01ff".to_string();
     let bytes = test.as_bytes();
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser Acl.* {:?}", val);
@@ -541,7 +541,7 @@ fn test_xattr_parser() {
     let bytes = test.as_bytes();
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser Nt_Sec_Desc.* {:?}", val);
-    let test = "REVISION:1,OWNER:TESTING\\mzhong215,GROUP:Unix Group\\mzhong215,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\mzhong215:0/0/0x001f019f,ACL:TESTING\\mzhong215:0/0/0x001f019f".to_string();
+    let test = "REVISION:1,OWNER:TESTING\\superuser123,GROUP:Unix Group\\superuser123,ACL:\\Everyone:0/0/0x00120089,ACL:Unix Group\\adm:0/3/0x001f01ff,ACL:Unix Group\\superuser123:0/0/0x001f019f,ACL:TESTING\\superuser123:0/0/0x001f019f".to_string();
     let bytes = test.as_bytes();
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser Nt_sec_Desc.* {:?}", val);
@@ -556,7 +556,7 @@ fn test_xattr_parser() {
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser SID {:?}", val);
     //.group+ | .owner+
-    let test = "Unix Group\\mzhong215".to_string();
+    let test = "Unix Group\\superuser123".to_string();
     let bytes = test.as_bytes();
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser SIDSTRING {:?}", val);
