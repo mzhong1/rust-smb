@@ -28,7 +28,7 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     NewContext(io::Error),
     InitContext(io::Error),
-    AuthCallbackPaniced(Box<error::Error>),
+    AuthCallbackPaniced(Box<error::Error + Send + Sync>),
     NulInPath(ffi::NulError),
     Io(io::Error),
 }
