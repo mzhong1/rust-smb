@@ -20,15 +20,17 @@
 //!
 //! It provides basic `std::fs`-like API to access SMB/CIFS file shares
 //!
-//! Primary entrypoint is [`SmbClient`](struct.SmbClient.html) struct.
+//! Primary entrypoint is [`Smbc`](struct.Smbc.html) struct.
 //!
-//! Files are represented by [`SmbFile`](struct.SmbFile.html).
+//! Files are represented by [`SmbcFile`](struct.SmbcFile.html).
 //!
 
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate bitflags;
+#[macro_use]
+extern crate nom;
 extern crate chrono;
 extern crate libc;
 extern crate nix;
@@ -42,6 +44,9 @@ pub mod result;
 
 /// Main API module (reexported later)
 pub mod smbc;
+pub mod parser;
 
 pub use result::*;
 pub use smbc::*;
+
+pub use parser::*;
