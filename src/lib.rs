@@ -42,9 +42,9 @@ mod util;
 /// Module with smbc's Result and Error coercions
 pub mod result;
 
+pub mod parser;
 /// Main API module (reexported later)
 pub mod smbc;
-pub mod parser;
 
 pub use result::*;
 pub use smbc::*;

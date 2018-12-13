@@ -40,7 +40,7 @@ use util::*;
 
 //const SMBC_FALSE: smbc_bool = 0;
 //const SMBC_TRUE: smbc_bool = 1;
-
+#[derive(Clone)]
 struct SmbcPtr(*mut SMBCCTX);
 impl Drop for SmbcPtr {
     fn drop(&mut self) {
@@ -69,17 +69,17 @@ pub struct Smbc {
 
 bitflags! {
     pub struct XAttrFlags :i32 {
-        ///zeroed
+        /// zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
-        ///create new attribute
+        /// create new attribute
         const SMBC_XATTR_FLAG_CREATE = 0x1;
-        ///replace attribute
+        /// replace attribute
         const SMBC_XATTR_FLAG_REPLACE = 0x2;
     }
 }
 
 bitflags! {
-    ///ACL attribute mask constants
+    /// ACL attribute mask constants
     pub struct XAttrMask : i32 {
         const NONE = 0x0000_0000;
         const R = 0x0012_0089;
@@ -89,74 +89,82 @@ bitflags! {
         const P = 0x0004_0000;
         const O = 0x0008_0000;
         const N = 0x0000_0000;
-        ///Equivalent to 'RX' permissions
+        /// Equivalent to 'RX' permissions
         const READ = 0x0012_00a9;
-        ///Equivalent to RXWD permissions
+        /// Equivalent to RXWD permissions
         const CHANGE = 0x0013_01bf;
-        ///Equivalent to RWXDPO permissions
+        /// Equivalent to RWXDPO permissions
         const FULL = 0x001f_01ff;
     }
 }
 
 impl fmt::Display for XAttrMask {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut buff = String::new();        
+        let mut buff = String::new();
         if self.contains(XAttrMask::FULL) {
             buff.push_str("FULL");
             return write!(f, "{}", buff);
-        }else if self.contains(XAttrMask::CHANGE) {
+        }
+        if self.contains(XAttrMask::CHANGE) {
             buff.push_str("CHANGE");
             return write!(f, "{}", buff);
         }
-        else if self.contains(XAttrMask::READ){
+        if self.contains(XAttrMask::READ) {
             buff.push_str("READ");
             return write!(f, "{}", buff);
         }
-        else if self.contains(XAttrMask::O) {
-            buff.push_str("O");
-        }
-        else if self.contains(XAttrMask::P) {
-            buff.push_str("P");
-        }
-        else if self.contains(XAttrMask::D) {
-            buff.push_str("D");
-        }
-        else if self.contains(XAttrMask::X) {
-            buff.push_str("X");
-        }
-        else if self.contains(XAttrMask::W) {
-            buff.push_str("W");
-        }
-        else if self.contains(XAttrMask::R) {
+        if self.contains(XAttrMask::R) {
             buff.push_str("R");
         }
-        else
-        {
+        if self.contains(XAttrMask::W) {
+            buff.push_str("W");
+        }
+        if self.contains(XAttrMask::X) {
+            buff.push_str("X");
+        }
+        if self.contains(XAttrMask::D) {
+            buff.push_str("D");
+        }
+        if self.contains(XAttrMask::P) {
+            buff.push_str("P");
+        }
+        if self.contains(XAttrMask::O) {
+            buff.push_str("O");
+        }
+        if self.contains(XAttrMask::N) && buff.is_empty() {
             buff.push_str("N");
         }
         write!(f, "{}", buff)
-    }    
+    }
 }
 
 bitflags! {
-    ///Dos Mode constants
+    /// Dos Mode constants
     pub struct DosMode : i32 {
         const READONLY = 0x01;
         const HIDDEN = 0x02;
-        const SYSTEM = 0x04; //OS use
+        /// OS use
+        const SYSTEM = 0x04;
         const VOLUME_ID = 0x08;
         const DIRECTORY = 0x10;
         const ARCHIVE = 0x20;
-        const DEVICE = 0x40; //reserved for system use
-        const NORMAL = 0x80; //valid only by itself
+        /// reserved for system use
+        const DEVICE = 0x40;
+        /// valid only by itself
+        const NORMAL = 0x80;
         const TEMPORARY = 0x100;
-        const SPARSE_FILE = 0x200; //sparse file
-        const REPARSE_POINT = 0x400; //has sym link
+        /// sparse file
+        const SPARSE_FILE = 0x200;
+        /// has sym link
+        const REPARSE_POINT = 0x400;
         const COMPRESSED = 0x800;
-        const OFFLINE = 0x1000; //data moved offline storage
+        /// data moved offline storage
+        const OFFLINE = 0x1000;
         const NOT_CONTENT_INDEXED = 0x2000;
-        const ENCRYPTED = 0x4000; //Encrypted file/dir
-        const INTEGRITY_STREAM = 0x8000; //dir or data stream conf with integrity (ReFS vol only)
+        /// Encrypted file/dir
+        const ENCRYPTED = 0x4000;
+        /// dir or data stream conf with integrity (ReFS vol only)
+        const INTEGRITY_STREAM = 0x8000;
     }
 }
 
@@ -220,9 +228,9 @@ impl SmbcType {
 pub enum SmbcXAttr {
     All,
     AllPlus,
-    ///Get xattr only (includes attribute exclusion)
+    /// Get xattr only (includes attribute exclusion)
     AllExclude(Vec<SmbcExclude>),
-    ///Get xattr only (includes attribute exclusion)
+    /// Get xattr only (includes attribute exclusion)
     AllExcludePlus(Vec<SmbcExclude>),
     DosAttr(SmbcDosAttr),
     AclAttr(SmbcAclAttr),
@@ -244,7 +252,7 @@ impl fmt::Display for SmbcXAttr {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SmbcDosAttr {
     All,
-    ///Get xattr only
+    /// Get xattr only
     AllExclude(Vec<SmbcExclude>),
     Atime,
     Ctime,
@@ -271,19 +279,19 @@ impl fmt::Display for SmbcDosAttr {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SmbcAclAttr {
-    ///remove use only (specific format)
+    /// remove use only (specific format)
     Acl(ACE),
-    ///remove use only (specific format)
+    /// remove use only (specific format)
     AclPlus(ACE),
     AclAll,
     AclAllPlus,
-    ///set use only
+    /// set use only
     AclNone,
-    ///set use only
+    /// set use only
     AclNonePlus,
-    ///get use only
+    /// get use only
     AclSid(Sid),
-    ///get use only
+    /// get use only
     AclSidPlus(Sid),
     All,
     AllPlus,
@@ -360,17 +368,17 @@ impl fmt::Display for SmbcAclValue {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-///The type of an ACE can be either Allowed or Denied to allow/deny access to the SID
+/// The type of an ACE can be either Allowed or Denied to allow/deny access to the SID
 pub enum AceAtype {
     ALLOWED,
     DENIED,
 }
 
 bitflags! {
-    ///Note: currently these flags can only be specified as decimal or hex values.
+    /// Note: currently these flags can only be specified as decimal or hex values.
     /// 9 or 2 is usually the value for directories
     pub struct AceFlag : i32{
-        ///This is usually the flag for files
+        /// This is usually the flag for files
         const NONE = 0;
         const SEC_ACE_FLAG_OBJECT_INHERIT = 0x1;
         const SEC_ACE_FLAG_CONTAINER_INHERIT = 0x2;
@@ -393,21 +401,20 @@ impl fmt::Display for Sid {
 
 ///
 /// Used for parsing individual ACL:SID output from getxattr
-/// 
+///
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum SidType
-{
-    Numeric(Option<Sid>), 
+pub enum SidType {
+    Numeric(Option<Sid>),
     Named(Option<String>),
 }
-impl fmt::Display for SidType{
+impl fmt::Display for SidType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-       match self {
-           SidType::Numeric(Some(s)) => s.fmt(f),
-           SidType::Numeric(None) => write!(f, ""),
-           SidType::Named(Some(s)) => write!(f, "{}", s),
-           SidType::Named(None) => write!(f, ""),
-       }
+        match self {
+            SidType::Numeric(Some(s)) => s.fmt(f),
+            SidType::Numeric(None) => write!(f, ""),
+            SidType::Named(Some(s)) => write!(f, "{}", s),
+            SidType::Named(None) => write!(f, ""),
+        }
     }
 }
 
@@ -417,7 +424,7 @@ impl fmt::Display for SidType{
 /// ONLY be the case when parsing individual ACL:SID values from getxattr, in
 /// which case you should manually set the SID.  Also, individual parsers will
 /// always return NUMERIC ACE)
-/// 
+///
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ACE {
     Numeric(SidType, AceAtype, AceFlag, XAttrMask),
@@ -446,12 +453,20 @@ impl fmt::Display for ACE {
                 ),
             },
             ACE::Named(sid, atype, flags, mask) => match atype {
-                AceAtype::ALLOWED => {
-                    write!(f, "{}:ALLOWED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
-                }
-                AceAtype::DENIED => {
-                    write!(f, "{}:DENIED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
-                }
+                AceAtype::ALLOWED => write!(
+                    f,
+                    "{}:ALLOWED/{:x}/{}",
+                    format!("{}", sid),
+                    flags.bits(),
+                    mask
+                ),
+                AceAtype::DENIED => write!(
+                    f,
+                    "{}:DENIED/{:x}/{}",
+                    format!("{}", sid),
+                    flags.bits(),
+                    mask
+                ),
             },
         }
     }
@@ -484,25 +499,34 @@ impl fmt::Display for SmbcDosValue {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-///XAttr value given to setxattr
+/// XAttr value given to setxattr
 /// Please note that Revision, inode, size, and group cannot be changed individually...
 /// and inode and size cannot be changed at all
-/// 
+///
 /// Another thing to note: When parsing individual getxattr input to SmbcXAttrValue,
 /// the Sid Value is not set (due to how getxattr of acl:sid outputs)
 /// You will need to set that yourself
 /// the parser will by default always return NUMERIC ACE (if given individual ACE to
 /// parse from getxattr)
 pub enum SmbcXAttrValue {
-    Ace(ACE), //acl, acl+
-    AclAll(Vec<SmbcAclValue>), //acl.*, nt_sec_desc.*
-    DosAll(Vec<SmbcDosValue>), //dos_attr.*
-    Sid(Sid),        //owner, group
-    SidPlus(String), //owner+, group+
-    Unsigned(u64),   //revision, a_time, c_time, m_time, inode
-    Mode(DosMode),   //mode
-    Signed(i64),    //size
-    All(Vec<SmbcAclValue>, Vec<SmbcDosValue>), //all attribute values (system.*)
+    /// acl, acl+
+    Ace(ACE),
+    /// acl.*, nt_sec_desc.*
+    AclAll(Vec<SmbcAclValue>),
+    /// dos_attr.*
+    DosAll(Vec<SmbcDosValue>),
+    /// owner, group
+    Sid(Sid),
+    /// owner+, group+  
+    SidPlus(String),
+    /// revision, a_time, c_time, m_time, inode
+    Unsigned(u64),
+    /// mode
+    Mode(DosMode),
+    /// size
+    Signed(i64),
+    /// all attribute values (system.*)
+    All(Vec<SmbcAclValue>, Vec<SmbcDosValue>),
 }
 
 pub fn separated<D: fmt::Display>(iter: &[D], delimiter: &str) -> String {
@@ -1029,7 +1053,7 @@ impl Smbc {
         Ok(())
     }
 
-    ///Get extended attributes for a file.
+    /// Get extended attributes for a file.
     ///
     /// @param path       The smb url of the file or directory to get extended
     ///                  attributes for.
@@ -1089,11 +1113,11 @@ impl Smbc {
     ///                            extended attributes
     ///
     /// NOTE:
-    ///     system.nt_sec_desc.acl(+):sid will ONLY return the acetype, aceflag, and 
+    ///     system.nt_sec_desc.acl(+):sid will ONLY return the acetype, aceflag, and
     ///     xattr.  When parsing the output to SmbcXAttrValue, you must set the
     ///     SidType Sid manually, otherwise it will be NONE.  Also, the parser will
     ///     always return a NUMERIC ACE
-    /// 
+    ///
     pub fn getxattr(&self, path: &Path, attr: &SmbcXAttr) -> Result<Vec<u8>> {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let name = CString::new(format!("{}", attr).as_bytes())?;
@@ -1178,14 +1202,14 @@ impl Smbc {
     /// NOTE: removexattr only works for the following inputs:
     /// system.nt_sec_desc.*
     /// system.nt_sec_desc.*+
-    /// system.nt_sec_desc.acl
-    /// system.nt_sec_desc.acl+
+    /// system.nt_sec_desc.acl:sid
+    /// system.nt_sec_desc.acl+:sid
     ///
     /// In order for removexattr to run, you must have in your config file:
     /// store dos attributes = yes and vfs objects = yes
     /// or vfs objects = yes
-    /// 
-    /// PLEASE NOTE: NAMED attributes for removexattr will only accept the fields 
+    ///
+    /// PLEASE NOTE: NAMED attributes for removexattr will only accept the fields
     /// "FULL", "CHANGE", and "READ" (same as setxattr), otherwise it will segfault
     /// (There's nothing I can do about this, Samba manages to get a segfault somehow...)
     ///

@@ -1,8 +1,6 @@
-use nom::{
-    AsBytes, anychar, is_digit, is_hex_digit
-};
-use smbc::*;
 use nom::types::CompleteByteSlice;
+use nom::{anychar, is_digit, is_hex_digit, AsBytes};
+use smbc::*;
 use std::str::*;
 
 /*REVISION:1,
@@ -67,6 +65,9 @@ fn test_xattrmask_parse() {
 
 #[test]
 fn test_aceflag_parse() {
+    let testaflags = "11".to_string();
+    let aflagbytes = testaflags.as_bytes();
+    aceflag_parse(CompleteByteSlice(&aflagbytes)).unwrap();
     let testaflags = "8".to_string();
     let aflagbytes = testaflags.as_bytes();
     aceflag_parse(CompleteByteSlice(&aflagbytes)).unwrap();
@@ -583,6 +584,15 @@ fn test_xattr_parser() {
     let bytes = test.as_bytes();
     let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
     println!("Test xattr_parser ISIGN {:?}", val);
+    let test = "S-1-1-0:0/11/0x001f01ff".to_string();
+    let bytes = test.as_bytes();
+    let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
+    println!("Test xattr_parser sid {:?}", val);
+
+    let test = "S-1-5-21-3568127003-813371847-2250217916-1001:0/0/0x001f01ff,S-1-3-0:0/11/0x001f01ff,S-1-22-2-1001:0/0/0x001f01ff,S-1-3-1:0/11/0x001f01ff,S-1-1-0:0/3/0x001f01ff".to_string();
+    let bytes = test.as_bytes();
+    let val = xattr_parser(CompleteByteSlice(&bytes)).unwrap().1;
+    println!("Test xattr_parser Dir ACLS {:?}", val);
 }
 
 /// Parse a decimal number
@@ -644,9 +654,9 @@ named!(xattrmask_parse(CompleteByteSlice) -> XAttrMask,
 /// Parse an AceFlag
 named!(aceflag_parse(CompleteByteSlice) -> AceFlag,
     do_parse!(
-        num: hex_num >>
+        num: dec_num >>
         (
-            AceFlag::from_bits(num).unwrap()
+            AceFlag::from_bits(num as i32).unwrap()
         )
     )
 );
