@@ -41,6 +41,7 @@ use util::*;
 //const SMBC_FALSE: smbc_bool = 0;
 //const SMBC_TRUE: smbc_bool = 1;
 #[derive(Clone)]
+/// a pointer to hold the smbc context
 struct SmbcPtr(*mut SMBCCTX);
 impl Drop for SmbcPtr {
     fn drop(&mut self) {
@@ -63,11 +64,13 @@ impl Drop for SmbcPtr {
 }*/
 
 #[derive(Clone)]
+/// The Smbc Object.  Contains a pointer to a Samba context
 pub struct Smbc {
     context: Rc<SmbcPtr>,
 }
 
 bitflags! {
+    /// The Attribute Flags needed in a setxattr call
     pub struct XAttrFlags :i32 {
         /// zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
@@ -81,13 +84,19 @@ bitflags! {
 bitflags! {
     /// ACL attribute mask constants
     pub struct XAttrMask : i32 {
-        const NONE = 0x0000_0000;
+        /// Allow Read Access
         const R = 0x0012_0089;
+        /// Allow Write Access
         const W = 0x0012_0116;
+        /// Execute permission on the object
         const X = 0x0012_00a0;
+        /// Delete the object
         const D = 0x0001_0000;
+        /// Change permissions
         const P = 0x0004_0000;
+        /// Take ownership
         const O = 0x0008_0000;
+        /// None
         const N = 0x0000_0000;
         /// Equivalent to 'RX' permissions
         const READ = 0x0012_00a9;
@@ -141,25 +150,32 @@ impl fmt::Display for XAttrMask {
 bitflags! {
     /// Dos Mode constants
     pub struct DosMode : i32 {
+        /// Readonly file.  Note the read-only attribute is not honored on directories
         const READONLY = 0x01;
+        /// file/dir is not included in an ordinary dir listing
         const HIDDEN = 0x02;
         /// OS use
         const SYSTEM = 0x04;
         const VOLUME_ID = 0x08;
+        /// identifies a directory
         const DIRECTORY = 0x10;
+        /// An archive file or directory. Applications typically use this attribute to mark files for backup or removal.
         const ARCHIVE = 0x20;
         /// reserved for system use
         const DEVICE = 0x40;
-        /// valid only by itself
+        /// valid only by itself. No other attributes are set.
         const NORMAL = 0x80;
+        /// file used for temp storage.
         const TEMPORARY = 0x100;
         /// sparse file
         const SPARSE_FILE = 0x200;
         /// has sym link
         const REPARSE_POINT = 0x400;
+        /// a file or directory that is compressed. In a file, all data is compressed.
         const COMPRESSED = 0x800;
         /// data moved offline storage
         const OFFLINE = 0x1000;
+        /// file not to be indexed with context indexing service
         const NOT_CONTENT_INDEXED = 0x2000;
         /// Encrypted file/dir
         const ENCRYPTED = 0x4000;
@@ -169,6 +185,7 @@ bitflags! {
 }
 
 #[derive(Debug, Clone)]
+/// File Type
 pub enum SmbcType {
     WORKGROUP = 1,
     SERVER = 2,
@@ -226,13 +243,17 @@ impl SmbcType {
 /// system.dos_attr.ctime
 ///
 pub enum SmbcXAttr {
+    /// system.*
     All,
+    /// system.*+
     AllPlus,
     /// Get xattr only (includes attribute exclusion)
     AllExclude(Vec<SmbcExclude>),
     /// Get xattr only (includes attribute exclusion)
     AllExcludePlus(Vec<SmbcExclude>),
+    /// Dos attributes
     DosAttr(SmbcDosAttr),
+    /// NT Security Description Attributes
     AclAttr(SmbcAclAttr),
 }
 
@@ -250,15 +271,23 @@ impl fmt::Display for SmbcXAttr {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+/// commands for dos attributes
 pub enum SmbcDosAttr {
+    /// system.dos_attr.*
     All,
     /// Get xattr only
     AllExclude(Vec<SmbcExclude>),
+    /// system.dos_attr.atime
     Atime,
+    /// system.dos_attr.ctime
     Ctime,
+    /// system.dos_attr.mode
     Mode,
+    /// system.dos_attr.mtime
     Mtime,
+    /// system.dos_attr.inode
     Inode,
+    /// system.dos_attr.size
     Size,
 }
 
@@ -278,31 +307,41 @@ impl fmt::Display for SmbcDosAttr {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+/// commands for NT Security Descriptor
 pub enum SmbcAclAttr {
-    /// remove use only (specific format)
+    /// remove use only (specific format) numeric Acl
     Acl(ACE),
-    /// remove use only (specific format)
+    /// remove use only (specific format) named Acl
     AclPlus(ACE),
+    /// system.nt_sec_desc.acl.*
     AclAll,
+    /// system.nt_sec_desc.acl.*+
     AclAllPlus,
-    /// set use only
+    /// set use only specific numeric Acl
     AclNone,
-    /// set use only
+    /// set use only specific named Acl
     AclNonePlus,
-    /// get use only
+    /// get use only specific numeric Acl
     AclSid(Sid),
-    /// get use only
+    /// get use only specific named Acl
     AclSidPlus(Sid),
+    /// system.nt_sec_desc.*
     All,
+    /// system.nt_sec_desc.*+
     AllPlus,
-    /// get use only
+    /// get use only, can exclude attributes
     AllExclude(Vec<SmbcExclude>),
-    /// get use only
+    /// get use only, can exclude attributes
     AllExcludePlus(Vec<SmbcExclude>),
+    /// system.nt_sec_desc.group
     Group,
+    /// system.nt_sec_desc.group+
     GroupPlus,
+    /// system.nt_sec_desc.revision
     Revision,
+    /// system.nt_sec_desc.owner
     Owner,
+    /// system.nt_sec_desc.owner+
     OwnerPlus,
 }
 
@@ -344,12 +383,19 @@ impl fmt::Display for SmbcAclAttr {
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SmbcAclValue {
+    /// ACL:{}, numeric ace
     Acl(ACE),
+    /// ACL+:{}, named acl
     AclPlus(ACE),
+    /// Group:{}, numeric sid
     Group(Sid),
+    /// GROUP+:{}, named sid
     GroupPlus(String),
+    /// OWNER:{}, numeric sid
     Owner(Sid),
+    /// OWNER+:{}, named sid
     OwnerPlus(String),
+    /// REVISION:{}, revision number (NOTE: 1 is the only safe revision number...)
     Revision(u64),
 }
 
@@ -370,7 +416,9 @@ impl fmt::Display for SmbcAclValue {
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// The type of an ACE can be either Allowed or Denied to allow/deny access to the SID
 pub enum AceAtype {
+    /// Allow access to the SID
     ALLOWED,
+    /// Deny Access to the SID
     DENIED,
 }
 
@@ -380,9 +428,13 @@ bitflags! {
     pub struct AceFlag : i32{
         /// This is usually the flag for files
         const NONE = 0;
+        /// Non-container child objects inherit the ACE as an effective ACE
         const SEC_ACE_FLAG_OBJECT_INHERIT = 0x1;
+        /// The ACE has an effect on child namespaces as well as the current namespace
         const SEC_ACE_FLAG_CONTAINER_INHERIT = 0x2;
+        /// The ACE applies only to the current namespace and immediate children
         const SEC_ACE_FLAG_NO_PROPAGATE_INHERIT = 0x4;
+        /// The ACE applies only to child namespaces
         const SEC_ACE_FLAG_INHERIT_ONLY = 0x8;
     }
 }
@@ -404,7 +456,9 @@ impl fmt::Display for Sid {
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SidType {
+    /// A numeric Sid
     Numeric(Option<Sid>),
+    /// A named Sid
     Named(Option<String>),
 }
 impl fmt::Display for SidType {
@@ -427,7 +481,9 @@ impl fmt::Display for SidType {
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ACE {
+    /// A Numeric ACE
     Numeric(SidType, AceAtype, AceFlag, XAttrMask),
+    /// A Named ACE
     /// Please note that the String input for xattribute mask only works on the
     /// inputs FULL, CHANGE, and READ
     Named(SidType, AceAtype, AceFlag, String),
@@ -477,11 +533,17 @@ impl fmt::Display for ACE {
 /// INode and Size are used PURELY for parsing .* calls (Since there is
 /// no point in using them to change xattr values)
 pub enum SmbcDosValue {
+    /// Mode value
     MODE(DosMode),
+    /// Atime value
     ATime(u64),
+    /// Ctime value
     CTime(u64),
+    /// MTime value
     MTime(u64),
+    /// INode value
     INode(u64),
+    /// Size value
     Size(i64),
 }
 
@@ -529,6 +591,7 @@ pub enum SmbcXAttrValue {
     All(Vec<SmbcAclValue>, Vec<SmbcDosValue>),
 }
 
+/// function used to format a vector of items delimited by some string
 pub fn separated<D: fmt::Display>(iter: &[D], delimiter: &str) -> String {
     let mut delim_separated = String::new();
     for num in &iter[0..iter.len() - 1] {
@@ -584,15 +647,25 @@ impl fmt::Display for SmbcXAttrValue {
 /// a .* call. You will get an error
 ///
 pub enum SmbcExclude {
+    /// Exclude Revision
     Rev,
+    /// Exclude Owner
     Own,
+    /// Exclude Group
     Grp,
+    /// Exclude Acl list
     Acl,
+    /// Exclude Dos Mode
     Mod,
+    /// Exclude Size
     Siz,
+    /// Exclude CTime
     Ctm,
+    /// Exclude ATime
     Atm,
+    /// Exclude MTime
     Mtm,
+    /// Exclude INode
     Ino,
 }
 
@@ -614,15 +687,22 @@ impl fmt::Display for SmbcExclude {
 }
 
 #[derive(Debug, Clone)]
+/// A directory entry
 pub struct SmbcDirEntry {
+    /// the filetype of the entry
     pub s_type: SmbcType,
+    /// comment associated with the entry
     pub comment: String,
+    /// path of/to the entry
     pub path: PathBuf,
 }
 
 #[derive(Clone)]
+/// A samba directory
 pub struct SmbcDirectory {
+    /// the samba context
     smbc: Rc<SmbcPtr>,
+    /// handle to the directory
     handle: *mut SMBCFILE,
 }
 
@@ -638,8 +718,11 @@ impl Drop for SmbcDirectory {
 }
 
 #[derive(Clone)]
+/// A samba file
 pub struct SmbcFile {
+    /// the samba context
     smbc: Rc<SmbcPtr>,
+    /// handle to the file
     fd: *mut SMBCFILE,
 }
 
@@ -1240,13 +1323,16 @@ impl Smbc {
     /// As such, please note that your file ACL permissions do in fact effect
     /// whether or not you can make changes to a file as well.
     ///
-    /// NOTE: setxattr on system.nt_sec_desc.group(+),
+    /// @note: setxattr on system.nt_sec_desc.group(+),
     ///                   system.dos_attr.size,
     ///                   system.dos_attr.inode, do not work
     ///        Also, setxattr on system.dos_attr.* (it sets everything except size and inode...)
     ///        Also, NAMED ATTRIBUTES for ACL's only work with the mask inputs
-    ///        FULL, READ, and CHANGE.  
-    /// See https://ftp.samba.org/pub/pub/unpacked/SOC/2005/SAMBA_3_0/source/libsmb/libsmbclient.c
+    ///        FULL, READ, and CHANGE.
+    ///        Another thing, setxattr on DOSMODE will ONLY set the DOSMODE to N (Normal) if both
+    ///        your chmod permissions are set appropriately, AND the xattr acl permissions are
+    ///        set correctly (644, or owner RW, group R(W), other R)
+    /// See https://ftp.samba.org/pub/pub/unpacked/SOC/2005/SAMBA_3_0/source/libsmb/libsmbcliet.c
     /// for details (It uses the wrong value and therefore tries to change the owner instead
     /// of the group...)
     ///
