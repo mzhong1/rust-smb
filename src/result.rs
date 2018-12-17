@@ -31,6 +31,7 @@ pub enum Error {
     AuthCallbackPaniced(Box<error::Error + Send + Sync>),
     NulInPath(ffi::NulError),
     Io(io::Error),
+    SmbcXAttrError(String),
 }
 
 impl fmt::Display for Error {
@@ -43,6 +44,7 @@ impl fmt::Display for Error {
             Error::AuthCallbackPaniced(ref err) => {
                 write!(f, "Auth callback paniced last time: {}", err)
             }
+            Error::SmbcXAttrError(ref err) => write!(f, "SmbcXAttr enumeration error: {}", err),
         }
     }
 }
@@ -55,6 +57,7 @@ impl error::Error for Error {
             Error::Io(ref err) => err.description(),
             Error::NulInPath(ref err) => err.description(),
             Error::AuthCallbackPaniced(ref _err) => "panic in auth callback",
+            Error::SmbcXAttrError(ref _err) => "error in SmbcXAttr enumeration",
         }
     }
 
@@ -65,6 +68,7 @@ impl error::Error for Error {
             Error::Io(ref err) => Some(err),
             Error::NulInPath(ref err) => Some(err),
             Error::AuthCallbackPaniced(ref err) => Some(err.as_ref()),
+            Error::SmbcXAttrError(ref _err) => None,
         }
     }
 }

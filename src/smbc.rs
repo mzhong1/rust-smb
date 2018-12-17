@@ -34,7 +34,9 @@ use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, EINVAL};
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
-use result::Result;
+use nom::types::CompleteByteSlice;
+use parser::*;
+use result::{Error as SmbcError, Result};
 use smbclient_sys::*;
 use util::*;
 
@@ -104,6 +106,40 @@ bitflags! {
         const CHANGE = 0x0013_01bf;
         /// Equivalent to RWXDPO permissions
         const FULL = 0x001f_01ff;
+    }
+}
+
+impl XAttrMask {
+    pub fn from_string(mask: &str) -> Self {
+        let mut m = XAttrMask::N;
+        if mask == "FULL" {
+            return XAttrMask::FULL;
+        }
+        if mask == "CHANGE" {
+            return XAttrMask::CHANGE;
+        }
+        if mask == "READ" {
+            return XAttrMask::READ;
+        }
+        if mask.contains("O") {
+            m |= XAttrMask::O;
+        }
+        if mask.contains("P") {
+            m |= XAttrMask::P;
+        }
+        if mask.contains("D") {
+            m |= XAttrMask::D;
+        }
+        if mask.contains("X") {
+            m |= XAttrMask::X;
+        }
+        if mask.contains("W") {
+            m |= XAttrMask::W;
+        }
+        if mask.contains("R") {
+            m |= XAttrMask::R;
+        }
+        m
     }
 }
 
@@ -487,6 +523,122 @@ pub enum ACE {
     /// Please note that the String input for xattribute mask only works on the
     /// inputs FULL, CHANGE, and READ
     Named(SidType, AceAtype, AceFlag, String),
+}
+
+impl ACE {
+    pub fn new_num(sid: Sid, atype: AceAtype, flag: AceFlag, mask: XAttrMask) -> Self {
+        ACE::Numeric(SidType::Numeric(Some(sid)), atype, flag, mask)
+    }
+
+    pub fn new_named_with_mask(sid: &str, atype: AceAtype, flag: AceFlag, mask: XAttrMask) -> Self {
+        ACE::Named(
+            SidType::Named(Some(sid.to_string())),
+            atype,
+            flag,
+            mask.to_string(),
+        )
+    }
+    pub fn new_named(sid: &str, atype: AceAtype, flag: AceFlag, mask: &str) -> Self {
+        ACE::Named(
+            SidType::Named(Some(sid.to_string())),
+            atype,
+            flag,
+            mask.to_string(),
+        )
+    }
+
+    pub fn sid_string(&self) -> Result<String> {
+        match self {
+            ACE::Numeric(SidType::Numeric(Some(sid)), _, _, _) => Ok(sid.to_string()),
+            ACE::Named(SidType::Named(Some(sid)), _, _, _) => Ok(sid.to_string()),
+            ACE::Numeric(SidType::Numeric(None), _, _, _) => {
+                error!("SidType should not be None!");
+                Err(SmbcError::SmbcXAttrError("SidType is None!".to_string()))
+            }
+            ACE::Named(SidType::Named(None), _, _, _) => {
+                error!("SidType should not be None!");
+                Err(SmbcError::SmbcXAttrError("SidType is None!".to_string()))
+            }
+            _ => Err(SmbcError::SmbcXAttrError(
+                "Mismatched ACE and SidType!".to_string(),
+            )),
+        }
+    }
+
+    pub fn sid(&self) -> Result<Sid> {
+        match self {
+            ACE::Numeric(SidType::Numeric(Some(sid)), _, _, _) => Ok(sid.clone()),
+            ACE::Named(SidType::Named(Some(sid)), _, _, _) => {
+                match sid_parse(CompleteByteSlice(sid.as_bytes())) {
+                    Ok((_, parse_sid)) => Ok(parse_sid),
+                    Err(_e) => Err(SmbcError::SmbcXAttrError(
+                        "Unable to parse SID!".to_string(),
+                    )),
+                }
+            }
+            ACE::Numeric(SidType::Numeric(None), _, _, _) => {
+                error!("SidType should not be None!");
+                Err(SmbcError::SmbcXAttrError("SidType is None!".to_string()))
+            }
+            ACE::Named(SidType::Named(None), _, _, _) => {
+                error!("SidType should not be None!");
+                Err(SmbcError::SmbcXAttrError("SidType is None!".to_string()))
+            }
+            _ => Err(SmbcError::SmbcXAttrError(
+                "Mismatched ACE and SidType!".to_string(),
+            )),
+        }
+    }
+
+    pub fn acetype(&self) -> Result<AceAtype> {
+        match self {
+            ACE::Numeric(SidType::Numeric(_), atype, _, _) => Ok(atype.clone()),
+            ACE::Named(SidType::Named(_), atype, _, _) => Ok(atype.clone()),
+            _ => Err(SmbcError::SmbcXAttrError(
+                "Mismatched ACE and SidType!".to_string(),
+            )),
+        }
+    }
+
+    pub fn aceflag(&self) -> Result<AceFlag> {
+        match self {
+            ACE::Numeric(SidType::Numeric(_), _, flag, _) => Ok(flag.clone()),
+            ACE::Named(SidType::Named(_), _, flag, _) => Ok(flag.clone()),
+            _ => Err(SmbcError::SmbcXAttrError(
+                "Mismatched ACE and SidType!".to_string(),
+            )),
+        }
+    }
+
+    pub fn mask_string(&self) -> Result<String> {
+        match self {
+            ACE::Numeric(SidType::Numeric(_), _, _, mask) => Ok(mask.to_string()),
+            ACE::Named(SidType::Named(_), _, _, mask) => Ok(mask.clone()),
+            _ => Err(SmbcError::SmbcXAttrError(
+                "Mismatched ACE and SidType!".to_string(),
+            )),
+        }
+    }
+
+    pub fn mask(&self) -> Result<XAttrMask> {
+        match self {
+            ACE::Numeric(SidType::Numeric(_), _, _, mask) => Ok(mask.clone()),
+            ACE::Named(SidType::Named(_), _, _, mask) => Ok(XAttrMask::from_string(mask)),
+            _ => Err(SmbcError::SmbcXAttrError(
+                "Mismatched ACE and SidType!".to_string(),
+            )),
+        }
+    }
+
+    pub fn is_numeric(&self) -> Result<bool> {
+        match self {
+            ACE::Numeric(SidType::Numeric(_), _, _, _) => Ok(true),
+            ACE::Named(SidType::Named(_), _, _, _) => Ok(false),
+            _ => Err(SmbcError::SmbcXAttrError(
+                "Mismatched ACE and SidType!".to_string(),
+            )),
+        }
+    }
 }
 
 impl fmt::Display for ACE {

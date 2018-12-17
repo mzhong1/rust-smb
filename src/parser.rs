@@ -734,7 +734,7 @@ named!(list_dash(CompleteByteSlice) -> Vec<u64>,
 );
 
 /// Parse a numeric SID
-named!(sid_parse(CompleteByteSlice) -> Sid,
+named!(pub sid_parse(CompleteByteSlice) -> Sid,
     do_parse!(
         tag!("S-1-") >>
         nums: list_dash >>
