@@ -35,10 +35,10 @@ use libc::{c_char, c_int, mode_t, off_t, EINVAL};
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 use nom::types::CompleteByteSlice;
-use parser::*;
-use result::{Error as SmbcError, Result};
+use crate::parser::*;
+use crate::result::{Error as SmbcError, Result};
 use smbclient_sys::*;
-use util::*;
+use crate::util::*;
 
 //const SMBC_FALSE: smbc_bool = 0;
 //const SMBC_TRUE: smbc_bool = 1;

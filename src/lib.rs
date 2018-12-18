@@ -46,7 +46,7 @@ pub mod parser;
 /// Main API module (reexported later)
 pub mod smbc;
 
-pub use result::*;
-pub use smbc::*;
+pub use crate::result::*;
+pub use crate::smbc::*;
 
-pub use parser::*;
+pub use crate::parser::*;
