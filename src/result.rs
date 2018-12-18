@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with smbc. If not, see <http://www.gnu.org/licenses/>.
 
+//use failure::{Fail as F};
 use std::error;
 use std::ffi;
 use std::fmt;
