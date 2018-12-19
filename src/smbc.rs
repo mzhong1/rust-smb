@@ -30,15 +30,15 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 use std::rc::Rc;
 
+use crate::parser::*;
+use crate::result::{Error as SmbcError, Result};
+use crate::util::*;
 use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, EINVAL};
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 use nom::types::CompleteByteSlice;
-use crate::parser::*;
-use crate::result::{Error as SmbcError, Result};
 use smbclient_sys::*;
-use crate::util::*;
 
 //const SMBC_FALSE: smbc_bool = 0;
 //const SMBC_TRUE: smbc_bool = 1;
@@ -759,17 +759,17 @@ impl fmt::Display for SmbcXAttrValue {
         match self {
             SmbcXAttrValue::Ace(s) => s.fmt(f),
             SmbcXAttrValue::AclAll(s) => {
-                let mut comma_separated = separated(s, "\n");
+                let comma_separated = separated(s, "\n");
                 write!(f, "{}", comma_separated)
             }
             SmbcXAttrValue::DosAll(s) => {
-                let mut comma_separated = separated(s, "\t");
+                let comma_separated = separated(s, "\t");
                 write!(f, "{}", comma_separated)
             }
             SmbcXAttrValue::All(a, d) => {
                 let mut comma_separated = separated(a, "\n");
                 comma_separated.push_str(",");
-                let mut dcomma_separated = separated(d, "\t");
+                let dcomma_separated = separated(d, "\t");
                 comma_separated.push_str(&dcomma_separated);
                 write!(f, "{}", comma_separated)
             }
