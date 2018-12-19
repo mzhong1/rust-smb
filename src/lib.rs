@@ -26,17 +26,6 @@
 //!
 
 #[macro_use]
-extern crate log;
-#[macro_use]
-extern crate bitflags;
-#[macro_use]
-extern crate nom;
-
-
-
-
-
-#[macro_use]
 mod util;
 
 /// Module with smbc's Result and Error coercions

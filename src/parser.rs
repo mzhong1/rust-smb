@@ -1,7 +1,7 @@
 use nom::types::CompleteByteSlice;
-use nom::{anychar, is_digit, is_hex_digit, AsBytes};
 use crate::smbc::*;
 use std::str::*;
+use nom::*;
 
 /*REVISION:1,
 OWNER:S-1-5-21-3568127003-813371847-2250217916-1001,
@@ -619,7 +619,7 @@ named!(sdec_num(CompleteByteSlice<'_>) -> i64,
                 let s = String::from_utf8_lossy(n.as_bytes());
                 let i = i64::from_str_radix(&s, 10).unwrap();
                 match sign {
-                    Some(_) => i * (-1),
+                    Some(_) => -i,
                     None => i,
                 }
             }

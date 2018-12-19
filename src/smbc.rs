@@ -40,6 +40,9 @@ use nix::sys::stat::Mode;
 use nom::types::CompleteByteSlice;
 use smbclient_sys::*;
 
+use log::{error, trace};
+use bitflags::bitflags;
+
 //const SMBC_FALSE: smbc_bool = 0;
 //const SMBC_TRUE: smbc_bool = 1;
 #[derive(Clone)]
@@ -121,22 +124,22 @@ impl XAttrMask {
         if mask == "READ" {
             return XAttrMask::READ;
         }
-        if mask.contains("O") {
+        if mask.contains('O') {
             m |= XAttrMask::O;
         }
-        if mask.contains("P") {
+        if mask.contains('P') {
             m |= XAttrMask::P;
         }
-        if mask.contains("D") {
+        if mask.contains('D') {
             m |= XAttrMask::D;
         }
-        if mask.contains("X") {
+        if mask.contains('X') {
             m |= XAttrMask::X;
         }
-        if mask.contains("W") {
+        if mask.contains('W') {
             m |= XAttrMask::W;
         }
-        if mask.contains("R") {
+        if mask.contains('R') {
             m |= XAttrMask::R;
         }
         m
@@ -602,8 +605,8 @@ impl ACE {
 
     pub fn aceflag(&self) -> Result<AceFlag> {
         match self {
-            ACE::Numeric(SidType::Numeric(_), _, flag, _) => Ok(flag.clone()),
-            ACE::Named(SidType::Named(_), _, flag, _) => Ok(flag.clone()),
+            ACE::Numeric(SidType::Numeric(_), _, flag, _) => Ok(*flag),
+            ACE::Named(SidType::Named(_), _, flag, _) => Ok(*flag),
             _ => Err(SmbcError::SmbcXAttrError(
                 "Mismatched ACE and SidType!".to_string(),
             )),
@@ -622,7 +625,7 @@ impl ACE {
 
     pub fn mask(&self) -> Result<XAttrMask> {
         match self {
-            ACE::Numeric(SidType::Numeric(_), _, _, mask) => Ok(mask.clone()),
+            ACE::Numeric(SidType::Numeric(_), _, _, mask) => Ok(*mask),
             ACE::Named(SidType::Named(_), _, _, mask) => Ok(XAttrMask::from_string(mask)),
             _ => Err(SmbcError::SmbcXAttrError(
                 "Mismatched ACE and SidType!".to_string(),
