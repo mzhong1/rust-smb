@@ -29,14 +29,14 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     NewContext(io::Error),
     InitContext(io::Error),
-    AuthCallbackPaniced(Box<error::Error + Send + Sync>),
+    AuthCallbackPaniced(Box<dyn error::Error + Send + Sync>),
     NulInPath(ffi::NulError),
     Io(io::Error),
     SmbcXAttrError(String),
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::NewContext(ref err) => write!(f, "New context error: {}", err),
             Error::InitContext(ref err) => write!(f, "Init context error: {}", err),
@@ -62,7 +62,7 @@ impl error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::NewContext(ref err) => Some(err),
             Error::InitContext(ref err) => Some(err),

@@ -144,7 +144,7 @@ impl XAttrMask {
 }
 
 impl fmt::Display for XAttrMask {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buff = String::new();
         if self.contains(XAttrMask::FULL) {
             buff.push_str("FULL");
@@ -294,7 +294,7 @@ pub enum SmbcXAttr {
 }
 
 impl fmt::Display for SmbcXAttr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SmbcXAttr::All => write!(f, "system.*"),
             SmbcXAttr::AllPlus => write!(f, "system.*+"),
@@ -328,7 +328,7 @@ pub enum SmbcDosAttr {
 }
 
 impl fmt::Display for SmbcDosAttr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SmbcDosAttr::All => write!(f, "system.dos_attr.*"),
             SmbcDosAttr::AllExclude(s) => write!(f, "system.dos_attr.*!{}", separated(s, "!")),
@@ -382,7 +382,7 @@ pub enum SmbcAclAttr {
 }
 
 impl fmt::Display for SmbcAclAttr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SmbcAclAttr::Acl(s) => write!(f, "system.nt_sec_desc.acl{}", format!(":{}", s)),
             SmbcAclAttr::AclAll => write!(f, "system.nt_sec_desc.acl.*"),
@@ -436,7 +436,7 @@ pub enum SmbcAclValue {
 }
 
 impl fmt::Display for SmbcAclValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SmbcAclValue::Acl(s) => write!(f, "ACL:{}", format!("{}", s)),
             SmbcAclValue::AclPlus(s) => write!(f, "ACL+:{}", format!("{}", s)),
@@ -478,7 +478,7 @@ bitflags! {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Sid(pub Vec<u64>);
 impl fmt::Display for Sid {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut dash_separated = String::new();
         dash_separated.push_str("S-1-");
         let s = separated(&self.0, "-");
@@ -498,7 +498,7 @@ pub enum SidType {
     Named(Option<String>),
 }
 impl fmt::Display for SidType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SidType::Numeric(Some(s)) => s.fmt(f),
             SidType::Numeric(None) => write!(f, ""),
@@ -642,7 +642,7 @@ impl ACE {
 }
 
 impl fmt::Display for ACE {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ACE::Numeric(s, atype, flags, mask) => match atype {
                 AceAtype::ALLOWED => write!(
@@ -700,7 +700,7 @@ pub enum SmbcDosValue {
 }
 
 impl fmt::Display for SmbcDosValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SmbcDosValue::MODE(m) => write!(f, "MODE:{}", m.bits()),
             SmbcDosValue::ATime(m) => write!(f, "A_TIME:{}", m),
@@ -755,7 +755,7 @@ pub fn separated<D: fmt::Display>(iter: &[D], delimiter: &str) -> String {
 }
 
 impl fmt::Display for SmbcXAttrValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SmbcXAttrValue::Ace(s) => s.fmt(f),
             SmbcXAttrValue::AclAll(s) => {
@@ -822,7 +822,7 @@ pub enum SmbcExclude {
 }
 
 impl fmt::Display for SmbcExclude {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SmbcExclude::Rev => write!(f, "nt_sec_desc.revision"),
             SmbcExclude::Own => write!(f, "nt_sec_desc.owner"),

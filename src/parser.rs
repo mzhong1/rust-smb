@@ -596,7 +596,7 @@ fn test_xattr_parser() {
 }
 
 /// Parse a decimal number
-named!(dec_num(CompleteByteSlice) -> u64,
+named!(dec_num(CompleteByteSlice<'_>) -> u64,
     do_parse!(
         n: take_while1!(is_digit) >>
         (
@@ -609,7 +609,7 @@ named!(dec_num(CompleteByteSlice) -> u64,
 );
 
 /// Parse a signed decimal number
-named!(sdec_num(CompleteByteSlice) -> i64,
+named!(sdec_num(CompleteByteSlice<'_>) -> i64,
     do_parse!(
         sign: opt!(tag!("-")) >>
         n: take_while1!(is_digit) >>
@@ -628,7 +628,7 @@ named!(sdec_num(CompleteByteSlice) -> i64,
 );
 
 /// Parse a Hex number
-named!(hex_num(CompleteByteSlice) -> i32,
+named!(hex_num(CompleteByteSlice<'_>) -> i32,
     do_parse!(
         n: alt!(take_while1!(is_hex_digit) | take_while!(is_digit)) >>
         (
@@ -641,7 +641,7 @@ named!(hex_num(CompleteByteSlice) -> i32,
 );
 
 /// Parse an XAttrMask
-named!(xattrmask_parse(CompleteByteSlice) -> XAttrMask,
+named!(xattrmask_parse(CompleteByteSlice<'_>) -> XAttrMask,
     do_parse!(
         tag!("0x") >>
         num: hex_num >>
@@ -652,7 +652,7 @@ named!(xattrmask_parse(CompleteByteSlice) -> XAttrMask,
 );
 
 /// Parse an AceFlag
-named!(aceflag_parse(CompleteByteSlice) -> AceFlag,
+named!(aceflag_parse(CompleteByteSlice<'_>) -> AceFlag,
     do_parse!(
         num: dec_num >>
         (
@@ -662,7 +662,7 @@ named!(aceflag_parse(CompleteByteSlice) -> AceFlag,
 );
 
 /// parse a binary number (0 or 1 only)
-named!(bool_num(CompleteByteSlice) -> i32,
+named!(bool_num(CompleteByteSlice<'_>) -> i32,
     do_parse!(
         i: alt!(
             recognize!(tag!("0")) |
@@ -678,7 +678,7 @@ named!(bool_num(CompleteByteSlice) -> i32,
 );
 
 /// Parse an AceAtype
-named!(aceatype_parse(CompleteByteSlice) -> AceAtype,
+named!(aceatype_parse(CompleteByteSlice<'_>) -> AceAtype,
     do_parse!(
         num: bool_num >>
         (
@@ -692,7 +692,7 @@ named!(aceatype_parse(CompleteByteSlice) -> AceAtype,
 );
 
 /// Parse a DosMode
-named!(dosmode_parse(CompleteByteSlice) -> DosMode,
+named!(dosmode_parse(CompleteByteSlice<'_>) -> DosMode,
     do_parse!(
         tag!("0x") >>
         num: hex_num >>
@@ -703,7 +703,7 @@ named!(dosmode_parse(CompleteByteSlice) -> DosMode,
 );
 
 /// Individual mode get parse
-named!(mode_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(mode_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         dos: exact!(dosmode_parse) >>
         (
@@ -713,7 +713,7 @@ named!(mode_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Mode parse for .* call
-named!(mode_all_parse(CompleteByteSlice) -> SmbcDosValue,
+named!(mode_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
     do_parse!(
         tag_no_case!("MODE:") >>
         dos: dosmode_parse >>
@@ -724,7 +724,7 @@ named!(mode_all_parse(CompleteByteSlice) -> SmbcDosValue,
 );
 
 /// collect numbers seperated by -
-named!(list_dash(CompleteByteSlice) -> Vec<u64>,
+named!(list_dash(CompleteByteSlice<'_>) -> Vec<u64>,
     do_parse!(
         nums: separated_list!(tag!("-"), dec_num) >>
         (
@@ -734,7 +734,7 @@ named!(list_dash(CompleteByteSlice) -> Vec<u64>,
 );
 
 /// Parse a numeric SID
-named!(pub sid_parse(CompleteByteSlice) -> Sid,
+named!(pub sid_parse(CompleteByteSlice<'_>) -> Sid,
     do_parse!(
         tag!("S-1-") >>
         nums: list_dash >>
@@ -745,7 +745,7 @@ named!(pub sid_parse(CompleteByteSlice) -> Sid,
 );
 
 /// Parse a named SID for named individual SID's from ACL+
-named!(string_sid(CompleteByteSlice) -> String,
+named!(string_sid(CompleteByteSlice<'_>) -> String,
     do_parse!(
         sid: take_until!(":") >>
         (
@@ -755,7 +755,7 @@ named!(string_sid(CompleteByteSlice) -> String,
 );
 
 /// Parse a named SID
-named!(sidplus_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(sidplus_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         sid: exact!(read_string) >>
         (
@@ -765,7 +765,7 @@ named!(sidplus_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse a named SID for Group+ (.* call)
-named!(groupplus_all_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(groupplus_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
     tag!("GROUP:") >>
         sid: read_string >>
@@ -776,7 +776,7 @@ named!(groupplus_all_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// Parse a numeric SID for Group (.* call)
-named!(groupsid_all_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(groupsid_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
     tag!("GROUP:") >>
         sid: sid_parse >>
@@ -787,7 +787,7 @@ named!(groupsid_all_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// parse a SID for Group(+) (.* call)
-named!(group_all_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(group_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
         grp: alt!(groupsid_all_parse | groupplus_all_parse) >>
         (
@@ -797,7 +797,7 @@ named!(group_all_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// Parse an SID for Owner+ (.* call)
-named!(ownerplus_all_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(ownerplus_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
         tag!("OWNER:") >>
         sid: read_string >>
@@ -808,7 +808,7 @@ named!(ownerplus_all_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// Parse an SID for Owner (.* call)
-named!(ownersid_all_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(ownersid_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
         tag!("OWNER:") >>
         sid: sid_parse >>
@@ -819,7 +819,7 @@ named!(ownersid_all_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// Parse an SID for Owner(+) (.* call)
-named!(owner_all_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(owner_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
         own: alt!(ownersid_all_parse | ownerplus_all_parse) >>
         (
@@ -829,7 +829,7 @@ named!(owner_all_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// Parse a num for Revision (.* call)
-named!(revision_all_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(revision_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
         tag!("REVISION:") >>
         n: dec_num >>
@@ -840,7 +840,7 @@ named!(revision_all_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// Parse a numeric system.nt_sec_desc.* call to an XAttrValue
-named!(nt_sec_num_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(nt_sec_num_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         rev: revision_all_parse >>
         tag!(",") >>
@@ -863,7 +863,7 @@ named!(nt_sec_num_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse a named system.nt_sec_desc.*+ call to an XAttrValue
-named!(nt_sec_name_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(nt_sec_name_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         rev: revision_all_parse >>
         tag!(",") >>
@@ -884,7 +884,7 @@ named!(nt_sec_name_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse a system.nt_sec_desc.* call to an XAttrValue
-named!(nt_sec_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(nt_sec_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         xattr: alt!(exact!(nt_sec_num_xattr_parse) | exact!(nt_sec_name_xattr_parse)) >>
         (
@@ -894,7 +894,7 @@ named!(nt_sec_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse a numeric system.nt_sec_desc.* call to a Vec SmbcAclValue
-named!(nt_sec_num_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
+named!(nt_sec_num_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
     do_parse!(
         rev: revision_all_parse >>
         tag!(",") >>
@@ -917,7 +917,7 @@ named!(nt_sec_num_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
 );
 
 /// Parse a named system.nt_sec_desc.* call to a Vec SmbcAclValue
-named!(nt_sec_name_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
+named!(nt_sec_name_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
     do_parse!(
         rev: revision_all_parse >>
         tag!(",") >>
@@ -938,7 +938,7 @@ named!(nt_sec_name_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
 );
 
 /// Parse  a system.nt_sec_desc.* call to a Vec SmbcAclValue
-named!(nt_sec_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
+named!(nt_sec_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
     do_parse!(
         val: alt!(nt_sec_num_all_parse | nt_sec_name_all_parse) >>
         (
@@ -948,7 +948,7 @@ named!(nt_sec_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
 );
 
 ///For named individual SID's (from Owner+, Group+)
-named!(read_string(CompleteByteSlice) -> String,
+named!(read_string(CompleteByteSlice<'_>) -> String,
     do_parse!(
         sid: alt!(many_till!(anychar, tag!(",")) | many_till!(anychar, eof!())) >>
         (
@@ -958,7 +958,7 @@ named!(read_string(CompleteByteSlice) -> String,
 );
 
 /// Parse a specific ACL into an ACE
-named!(ace_parse(CompleteByteSlice) -> ACE,
+named!(ace_parse(CompleteByteSlice<'_>) -> ACE,
     do_parse!(
         sid: take_until!(":") >>
         tag!(":") >>
@@ -981,7 +981,7 @@ named!(ace_parse(CompleteByteSlice) -> ACE,
 );
 
 /// Parse a specific ACL from system.* or nt_sec_desc.* into an SmbcAclValue
-named!(acl_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(acl_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
         tag!("ACL:") >>
         ace: ace_parse >>
@@ -995,7 +995,7 @@ named!(acl_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// parse a list of ACL's (from nt_sec_desc.* or system.*) into a Vec SmbcAclValue
-named!(ace_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
+named!(ace_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
     do_parse!(
         aces: separated_list!(tag!(","), acl_parse) >>
         (
@@ -1005,7 +1005,7 @@ named!(ace_all_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
 );
 
 /// Parse a specific ACL into an SmbcAclValue (from .acl:Sid or acl.*)
-named!(aclsid_parse(CompleteByteSlice) -> SmbcAclValue,
+named!(aclsid_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
     do_parse!(
         ace: ace_parse >>
         (
@@ -1018,7 +1018,7 @@ named!(aclsid_parse(CompleteByteSlice) -> SmbcAclValue,
 );
 
 /// parse a list of ACL's (acl.*) into a Vec SmbcAclValue
-named!(aceall_xattr_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
+named!(aceall_xattr_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
     do_parse!(
         aces: exact!(separated_list!(tag!(","), aclsid_parse)) >>
         (
@@ -1027,7 +1027,7 @@ named!(aceall_xattr_parse(CompleteByteSlice) -> Vec<SmbcAclValue>,
     )
 );
 
-named!(acestat_parse(CompleteByteSlice) -> ACE,
+named!(acestat_parse(CompleteByteSlice<'_>) -> ACE,
     do_parse!(
         atype: aceatype_parse >>
         tag!("/") >>
@@ -1041,7 +1041,7 @@ named!(acestat_parse(CompleteByteSlice) -> ACE,
 );
 
 /// parse an individual ace from acl:sid into a SmbcXAttrValue
-named!(ace_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(ace_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         ace: exact!(acestat_parse) >>
         (
@@ -1051,7 +1051,7 @@ named!(ace_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse a list of ACL's from (acl.*) into an SmbcXAttrValue
-named!(acl_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(acl_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         aces: exact!(aceall_xattr_parse) >>
         (
@@ -1061,7 +1061,7 @@ named!(acl_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse a numeric SID (Owner, Group call) to an SmbcXAttrValue
-named!(sid_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(sid_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         sid: exact!(sid_parse) >>
         (
@@ -1071,7 +1071,7 @@ named!(sid_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse an individual #_time, revision, or inode attribute into a SmbcXAttrValue
-named!(unsigned_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(unsigned_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         n: exact!(dec_num) >>
         (
@@ -1081,7 +1081,7 @@ named!(unsigned_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse an a_time for a .* call
-named!(atime_all_parse(CompleteByteSlice) -> SmbcDosValue,
+named!(atime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
     do_parse!(
         tag!("A_TIME:") >>
         n: dec_num >>
@@ -1092,7 +1092,7 @@ named!(atime_all_parse(CompleteByteSlice) -> SmbcDosValue,
 );
 
 /// Parse an m_time for a .* call
-named!(mtime_all_parse(CompleteByteSlice) -> SmbcDosValue,
+named!(mtime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
     do_parse!(
         tag!("M_TIME:") >>
         n: dec_num >>
@@ -1103,7 +1103,7 @@ named!(mtime_all_parse(CompleteByteSlice) -> SmbcDosValue,
 );
 
 /// Parse a c_time for a .* call
-named!(ctime_all_parse(CompleteByteSlice) -> SmbcDosValue,
+named!(ctime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
     do_parse!(
         tag!("C_TIME:") >>
         n: dec_num >>
@@ -1114,7 +1114,7 @@ named!(ctime_all_parse(CompleteByteSlice) -> SmbcDosValue,
 );
 
 /// Parse an inode for a .* call
-named!(inode_all_parse(CompleteByteSlice) -> SmbcDosValue,
+named!(inode_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
     do_parse!(
         tag!("INODE:") >>
         n: dec_num >>
@@ -1125,7 +1125,7 @@ named!(inode_all_parse(CompleteByteSlice) -> SmbcDosValue,
 );
 
 /// Parse a signed individual xattr value (aka .size)
-named!(signed_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(signed_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         n: exact!(sdec_num) >>
         (
@@ -1135,7 +1135,7 @@ named!(signed_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse a size for a .* call
-named!(size_all_parse(CompleteByteSlice) -> SmbcDosValue,
+named!(size_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
     do_parse!(
         tag!("SIZE:") >>
         n: sdec_num >>
@@ -1146,7 +1146,7 @@ named!(size_all_parse(CompleteByteSlice) -> SmbcDosValue,
 );
 
 /// Parse a dos_attr.* call
-named!(dos_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(dos_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         mode: mode_all_parse >>
         tag!(",") >>
@@ -1166,7 +1166,7 @@ named!(dos_xattr_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse all dos attr for a system.* call
-named!(dos_all_parse(CompleteByteSlice) -> Vec<SmbcDosValue>,
+named!(dos_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcDosValue>,
     do_parse!(
         mode: mode_all_parse >>
         tag!(",") >>
@@ -1186,7 +1186,7 @@ named!(dos_all_parse(CompleteByteSlice) -> Vec<SmbcDosValue>,
 );
 
 /// Parse a system.* call
-named!(system_all_parse(CompleteByteSlice) -> SmbcXAttrValue,
+named!(system_all_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         nt: nt_sec_all_parse >>
         tag!(",") >>
@@ -1198,7 +1198,7 @@ named!(system_all_parse(CompleteByteSlice) -> SmbcXAttrValue,
 );
 
 /// Parse any getxattr valye to SmbcXattrValue
-named!(pub xattr_parser(CompleteByteSlice) -> SmbcXAttrValue,
+named!(pub xattr_parser(CompleteByteSlice<'_>) -> SmbcXAttrValue,
     do_parse!(
         xattr: alt!(
             system_all_parse |
