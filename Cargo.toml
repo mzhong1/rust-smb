@@ -8,6 +8,7 @@ documentation = "https://docs.rs/smbc"
 license = "GPL-3.0+"
 keywords = ["smbclient", "samba", "cifs"]
 description = "type-safe libsmbclient wrapper with std::fs-like interface"
+edition = "2018"
 
 [dependencies]
 libc = "~0.2"
