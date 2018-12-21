@@ -40,8 +40,9 @@ use nix::sys::stat::Mode;
 use nom::types::CompleteByteSlice;
 use smbclient_sys::*;
 
-use log::{error, trace};
 use bitflags::bitflags;
+use log::{error, trace};
+use percent_encoding::*;
 
 //const SMBC_FALSE: smbc_bool = 0;
 //const SMBC_TRUE: smbc_bool = 1;
@@ -1948,14 +1949,20 @@ impl Iterator for SmbcDirectory {
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
         for x in 0..len {
             trace!(target: "smbc", "namelen : {}", len);
+            println!("namelen : {}", len);
             trace!(target: "smbc", "{:?}", unsafe { *ptr.offset(x as isize) });
             buff.push(unsafe { *ptr.offset(x as isize) });
         }
+        println!("Original buff {:?}", buff);
         let name_buff: Vec<u8> = buff.iter().map(|c| *c as u8).collect();
         trace!(target: "smbc", "Cursor name {:?}", name_buff);
-
-        let filename = String::from_utf8_lossy(&name_buff);
+        println!(
+            "Cursor name {:?}",
+            name_buff.iter().map(|v| format!("{:X}", v))
+        );
+        let filename = percent_decode(&name_buff).decode_utf8_lossy();
         trace!(target: "smbc", "Filename: {:?}", filename);
+        println!("Filename: {:?}", filename);
         let s_type = match unsafe { SmbcType::from((*dirent).smbc_type) } {
             Ok(ty) => ty,
             Err(e) => {
