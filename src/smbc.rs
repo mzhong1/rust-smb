@@ -1249,6 +1249,37 @@ impl Smbc {
     }
 
     ///
+    /// rmdir
+    ///
+    /// remove a directory
+    ///
+    /// @param path     The smb url of the directory to remove
+    ///
+    /// @return         nothing on success, error with errno set:
+    ///                 - EACCES or EPERM Write access to the directory
+    ///                 containing pathname was not allowed.
+    ///                 - EINVAL path is NULL or smbc_init not called.
+    ///                 - ENOENT A directory component in pathname does not
+    ///                 exist.
+    ///                 - ENOTEMPTY directory contains entries.
+    ///                 - ENOMEM Insufficient kernel memory was available.
+    ///
+    pub fn rmdir(&self, path: &Path) -> Result<()> {
+        let path = CString::new(path.as_os_str().as_bytes())?;
+        let ptr = match self.context.lock() {
+            Ok(p) => p,
+            Err(e) => {
+                error!("Poisoned mutex {:?}", e);
+                panic!("POISONED MUTEX {:?}!!!!", e)
+            }
+        };
+        let ptr = ptr.deref();
+        let rmdir_fn = try_ufnrc!(smbc_getFunctionRmdir <- ptr);
+        to_result_with_le(unsafe { rmdir_fn(ptr.0, path.as_ptr()) })?;
+        Ok(())
+    }
+
+    ///
     /// stat
     /// stat returns the meta attributes of a file/directory
     /// NOTE:
