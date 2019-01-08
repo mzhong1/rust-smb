@@ -924,12 +924,14 @@ impl Smbc {
             pw: *mut c_char,
             pwlen: c_int,
         ) -> (),
+        level: u32,
     ) -> Result<Self> {
         let mut smbc = Smbc {
             context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
         };
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
+            smbc_setOptionDebugToStderr(ctx, 1);
             smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
             smbc_setOptionUserData(ctx, auth_fn as *const smbc_get_auth_data_fn as *mut c_void);
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
@@ -941,6 +943,7 @@ impl Smbc {
                 }
             };
             smbc_set_context(ptr);
+            smbc_setDebug(ptr, level as i32);
             smbc.context = Arc::new(Mutex::new(SmbcPtr(ptr)));
         }
         let copy_context = smbc.context.clone();
