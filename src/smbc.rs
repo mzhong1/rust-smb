@@ -21,12 +21,12 @@
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::io;
-use std::io::{Error, ErrorKind};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::mem::zeroed;
 use std::ops::Deref;
 use std::os::raw::c_void;
 use std::os::unix::ffi::OsStrExt;
+use std::panic;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::{Arc, Mutex};
@@ -35,7 +35,7 @@ use crate::parser::*;
 use crate::result::{Error as SmbcError, Result};
 use crate::util::*;
 use chrono::*;
-use libc::{c_char, c_int, mode_t, off_t, EINVAL};
+use libc::{c_char, c_int, mode_t, off_t, strncpy, EINVAL};
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 use nom::types::CompleteByteSlice;
@@ -79,7 +79,7 @@ pub struct Smbc {
 }
 
 bitflags! {
-    /// The Attribute Flags needed in a setxattr call
+    /// Te Attribute Flags needed in a setxattr call
     pub struct XAttrFlags :i32 {
         /// zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
@@ -932,8 +932,8 @@ impl Smbc {
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
             smbc_setOptionDebugToStderr(ctx, 1);
-            smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
             smbc_setOptionUserData(ctx, auth_fn as *const smbc_get_auth_data_fn as *mut c_void);
+            smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
                 Ok(p) => p,
                 Err(e) => {
@@ -965,6 +965,97 @@ impl Smbc {
         });
         Ok(smbc)
     }
+
+    /// new function with Authentication built in
+    pub fn new_with_auth<F>(auth_fn: &F, level: u32) -> Result<Smbc>
+    where
+        F: Fn(&str, &str) -> (CString, CString, CString),
+    {
+        let mut smbc = Smbc {
+            context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
+        };
+        unsafe {
+            let ctx = result_from_ptr_mut(smbc_new_context())?;
+            smbc_setOptionDebugToStderr(ctx, 1);
+            smbc_setOptionUserData(ctx, auth_fn as *const _ as *mut c_void);
+            smbc_setFunctionAuthDataWithContext(ctx, Some(Self::auth_wrapper::<F>));
+
+            let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
+                Ok(p) => p,
+                Err(e) => {
+                    trace!(target: "smbc", "smbc_init failed {:?}", e);
+                    smbc_free_context(ctx, 1 as c_int);
+                    ptr::null_mut()
+                }
+            };
+            smbc_set_context(ptr);
+            smbc_setDebug(ptr, level as i32);
+            smbc.context = Arc::new(Mutex::new(SmbcPtr(ptr)));
+        }
+        let copy_context = smbc.context.clone();
+        let readable_context = match copy_context.lock() {
+            Ok(p) => p,
+            Err(e) => {
+                error!("Poisoned mutex {:?}", e);
+                panic!("POISONED MUTEX {:?}!!!!", e)
+            }
+        };
+        trace!(target: "smbc", "ctx workgroup {:?}", unsafe {
+            CString::from_raw((*readable_context.0).workgroup)
+        });
+        trace!(target: "smbc", "ctx user {:?}", unsafe {
+            CString::from_raw((*readable_context.0).user)
+        });
+        trace!(target: "smbc", "ctx netbios {:?}", unsafe {
+            CString::from_raw((*readable_context.0).netbios_name)
+        });
+        Ok(smbc)
+    }
+    /// Auth wrapper
+    extern "C" fn auth_wrapper<F>(
+        ctx: *mut SMBCCTX,
+        srv: *const c_char,
+        shr: *const c_char,
+        wg: *mut c_char,
+        _wglen: c_int,
+        un: *mut c_char,
+        _unlen: c_int,
+        pw: *mut c_char,
+        _pwlen: c_int,
+    ) where
+        F: Fn(&str, &str) -> (CString, CString, CString),
+    {
+        unsafe {
+            let t_srv = CStr::from_ptr(srv);
+            let t_shr = CStr::from_ptr(shr);
+            let srv = t_srv.as_ptr();
+            let shr = t_shr.as_ptr();
+            trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
+
+            let auth: &F = &*(smbc_getOptionUserData(ctx) as *const c_void as *const F);
+            let auth = panic::AssertUnwindSafe(auth);
+            let r = panic::catch_unwind(|| {
+                trace!(target: "smbc", "auth with {:?}\\{:?}", srv, shr);
+                auth(&t_srv.to_string_lossy(), &t_shr.to_string_lossy())
+            });
+            //either use the provided credentials or the default guest
+            let (workgroup, username, password) = r.unwrap_or((
+                CString::new("WORKGROUP").unwrap(),
+                CString::new("guest").unwrap(),
+                CString::new("").unwrap(),
+            ));
+            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
+            let (wglen, unlen, pwlen) = (
+                workgroup.to_string_lossy().len(),
+                username.to_string_lossy().len(),
+                password.to_string_lossy().len(),
+            );
+            strncpy(wg, workgroup.as_ptr(), wglen);
+            strncpy(un, username.as_ptr(), unlen);
+            strncpy(pw, password.as_ptr(), pwlen);
+        }
+    }
+
     ///
     /// Create a file on an SMB server.
     ///
