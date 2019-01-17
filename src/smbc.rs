@@ -74,8 +74,9 @@ impl Drop for SmbcPtr {
 
 #[derive(Clone)]
 /// The Smbc Object.  Contains a pointer to a Samba context
-pub struct Smbc {
+pub struct Smbc<'a> {
     context: Arc<Mutex<SmbcPtr>>,
+    auth: &'a for<'b> Fn(&'b str, &'b str) -> (CString, CString, CString),
 }
 
 bitflags! {
@@ -911,8 +912,8 @@ impl Drop for SmbcFile {
     }
 }
 
-impl Smbc {
-    pub fn new(
+impl<'a> Smbc<'a> {
+    /*pub fn new(
         auth_fn: extern "C" fn(
             ctx: *mut SMBCCTX,
             srv: *const c_char,
@@ -928,6 +929,7 @@ impl Smbc {
     ) -> Result<Self> {
         let mut smbc = Smbc {
             context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
+            auth: Arc::new(None),
         };
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
@@ -964,15 +966,16 @@ impl Smbc {
             CString::from_raw((*readable_context.0).netbios_name)
         });
         Ok(smbc)
-    }
+    }*/
 
     /// new function with Authentication built in
-    pub fn new_with_auth<F>(auth_fn: &F, level: u32) -> Result<Smbc>
+    pub fn new_with_auth<F>(auth_fn: &'a F, level: u32) -> Result<Smbc>
     where
-        F: Fn(&str, &str) -> (CString, CString, CString),
+        F: for<'b> Fn(&'b str, &'b str) -> (CString, CString, CString),
     {
         let mut smbc = Smbc {
             context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
+            auth: auth_fn,
         };
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
@@ -1023,7 +1026,7 @@ impl Smbc {
         pw: *mut c_char,
         _pwlen: c_int,
     ) where
-        F: Fn(&str, &str) -> (CString, CString, CString),
+        F: for<'b> Fn(&'b str, &'b str) -> (CString, CString, CString),
     {
         unsafe {
             let t_srv = CStr::from_ptr(srv);
@@ -1036,6 +1039,7 @@ impl Smbc {
             let auth = panic::AssertUnwindSafe(auth);
             let r = panic::catch_unwind(|| {
                 trace!(target: "smbc", "auth with {:?}\\{:?}", srv, shr);
+                let (h, v) = (String::new(), String::new());
                 auth(&t_srv.to_string_lossy(), &t_shr.to_string_lossy())
             });
             //either use the provided credentials or the default guest
