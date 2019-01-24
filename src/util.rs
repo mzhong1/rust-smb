@@ -22,7 +22,7 @@ use std::io;
 /// try! get smbc function or return io::Error(EINVAL)
 macro_rules! try_ufnrc {
     ($e:ident <- $s:expr) => {
-        r#try!(unsafe { $e($s.0).ok_or(std::io::Error::from_raw_os_error(EINVAL as i32)) })
+        r#try!(unsafe { $e($s).ok_or(std::io::Error::from_raw_os_error(EINVAL as i32)) })
     };
 }
 

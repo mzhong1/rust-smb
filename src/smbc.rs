@@ -74,9 +74,101 @@ impl Drop for SmbcPtr {
 
 #[derive(Clone)]
 /// The Smbc Object.  Contains a pointer to a Samba context
-pub struct Smbc<'a> {
+pub struct Smbc {
     context: Arc<Mutex<SmbcPtr>>,
-    auth: &'a for<'b> Fn(&'b str, &'b str) -> (CString, CString, CString),
+    //func_ptr: Arc<&'static Fn(&str, &str) -> (CString, CString, CString)>,
+    //func_ptr: Arc<Box<Fn(&str, &str) -> (CString, CString, CString)>>,
+    pub chmod_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, mode: mode_t) -> c_int),
+    pub close_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, file: *mut SMBCFILE) -> c_int),
+    pub closedir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE) -> c_int),
+    pub creat_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, path: *const c_char, mode: mode_t) -> *mut SMBCFILE),
+    pub fstat_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, file: *mut SMBCFILE, st: *mut stat) -> c_int),
+    pub fstatvfs_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, file: *mut SMBCFILE, st: *mut statvfs) -> c_int),
+    pub fstatdir_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE, st: *mut stat) -> c_int),
+    pub ftruncate_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, f: *mut SMBCFILE, size: off_t) -> c_int),
+    pub getdents_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        dir: *mut SMBCFILE,
+        dirp: *mut smbc_dirent,
+        count: c_int,
+    ) -> c_int),
+    pub getxattr_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        fname: *const c_char,
+        name: *const c_char,
+        value: *const c_void,
+        size: usize,
+    ) -> c_int),
+    pub listxattr_fn: (unsafe extern "C" fn(
+        context: *mut SMBCCTX,
+        fname: *const c_char,
+        list: *mut c_char,
+        size: usize,
+    ) -> c_int),
+    pub lseek_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        offset: off_t,
+        whence: c_int,
+    ) -> off_t),
+    pub lseekdir_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE, offset: off_t) -> c_int),
+    pub mkdir_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, mode: mode_t) -> c_int),
+    pub open_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        fname: *const c_char,
+        flags: c_int,
+        mode: mode_t,
+    ) -> *mut SMBCFILE),
+    pub opendir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char) -> *mut SMBCFILE),
+    pub read_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *mut c_void,
+        count: usize,
+    ) -> isize),
+    pub readdir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE) -> *mut smbc_dirent),
+    pub removexattr_fn: (unsafe extern "C" fn(
+        context: *mut SMBCCTX,
+        fname: *const c_char,
+        name: *const c_char,
+    ) -> c_int),
+    pub rename_fn: (unsafe extern "C" fn(
+        ocontext: *mut SMBCCTX,
+        oname: *const c_char,
+        ncontext: *mut SMBCCTX,
+        nname: *const c_char,
+    ) -> c_int),
+    pub rmdir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char) -> c_int),
+    pub setxattr_fn: (unsafe extern "C" fn(
+        context: *mut SMBCCTX,
+        fname: *const c_char,
+        name: *const c_char,
+        value: *const c_void,
+        size: usize,
+        flags: c_int,
+    ) -> c_int),
+    pub stat_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, st: *mut stat) -> c_int),
+    pub statvfs_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, path: *mut c_char, st: *mut statvfs) -> c_int),
+    pub telldir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE) -> off_t),
+    pub unlink_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char) -> c_int),
+    pub utimes_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, tbuf: *mut timeval) -> c_int),
+    pub write_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *const c_void,
+        count: usize,
+    ) -> isize),
 }
 
 bitflags! {
@@ -864,6 +956,10 @@ pub struct SmbcDirectory {
     smbc: Arc<Mutex<SmbcPtr>>,
     /// handle to the directory
     handle: *mut SMBCFILE,
+    pub lseekdir_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE, offset: off_t) -> c_int),
+    pub readdir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE) -> *mut smbc_dirent),
+    pub telldir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE) -> off_t),
 }
 
 impl Drop for SmbcDirectory {
@@ -876,7 +972,7 @@ impl Drop for SmbcDirectory {
                     panic!("POISONED MUTEX {:?}!!!!", e)
                 }
             };
-            let ptr = ptr.deref();
+
             trace!(target: "smbc", "closing smbc file");
             unsafe {
                 smbc_getFunctionClosedir(ptr.0).map(|f| f(ptr.0, self.handle));
@@ -892,6 +988,28 @@ pub struct SmbcFile {
     smbc: Arc<Mutex<SmbcPtr>>,
     /// handle to the file
     fd: *mut SMBCFILE,
+    pub fstat_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, file: *mut SMBCFILE, st: *mut stat) -> c_int),
+    pub ftruncate_fn:
+        (unsafe extern "C" fn(c: *mut SMBCCTX, f: *mut SMBCFILE, size: off_t) -> c_int),
+    pub lseek_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        offset: off_t,
+        whence: c_int,
+    ) -> off_t),
+    pub read_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *mut c_void,
+        count: usize,
+    ) -> isize),
+    pub write_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *const c_void,
+        count: usize,
+    ) -> isize),
 }
 
 impl Drop for SmbcFile {
@@ -904,7 +1022,7 @@ impl Drop for SmbcFile {
                     panic!("POISONED MUTEX {:?}!!!!", e)
                 }
             };
-            let ptr = ptr.deref();
+
             unsafe {
                 smbc_getFunctionClose(ptr.0).map(|f| f(ptr.0, self.fd));
             }
@@ -912,8 +1030,8 @@ impl Drop for SmbcFile {
     }
 }
 
-impl<'a> Smbc<'a> {
-    /*pub fn new(
+impl Smbc {
+    /* pub fn new(
         auth_fn: extern "C" fn(
             ctx: *mut SMBCCTX,
             srv: *const c_char,
@@ -929,7 +1047,6 @@ impl<'a> Smbc<'a> {
     ) -> Result<Self> {
         let mut smbc = Smbc {
             context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
-            auth: Arc::new(None),
         };
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
@@ -948,7 +1065,7 @@ impl<'a> Smbc<'a> {
             smbc_setDebug(ptr, level as i32);
             smbc.context = Arc::new(Mutex::new(SmbcPtr(ptr)));
         }
-        let copy_context = smbc.context.clone();
+        /*let copy_context = Arc::clone(&smbc.context);
         let readable_context = match copy_context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -964,25 +1081,44 @@ impl<'a> Smbc<'a> {
         });
         trace!(target: "smbc", "ctx netbios {:?}", unsafe {
             CString::from_raw((*readable_context.0).netbios_name)
-        });
-        Ok(smbc)
+        });*/
+    Ok(smbc)
     }*/
 
-    /// new function with Authentication built in
-    pub fn new_with_auth<F>(auth_fn: &'a F, level: u32) -> Result<Smbc>
-    where
-        F: for<'b> Fn(&'b str, &'b str) -> (CString, CString, CString),
-    {
-        let mut smbc = Smbc {
-            context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
-            auth: auth_fn,
+    pub fn box_fn(
+        wg: &'static str,
+        un: &'static str,
+        pw: &'static str,
+    ) -> Box<Fn(&str, &str) -> (CString, CString, CString)> {
+        let auth = move |host: &str, share: &str| {
+            (
+                CString::new(wg).unwrap(),
+                CString::new(un).unwrap(),
+                CString::new(pw).unwrap(),
+            )
         };
+        Box::new(auth)
+    }
+    /// new function with Authentication built in
+    pub fn new_with_auth<F>(auth_fn: &F, level: u32) -> Result<Smbc>
+    where
+        F: Fn(&str, &str) -> (CString, CString, CString),
+    {
         unsafe {
             let ctx = result_from_ptr_mut(smbc_new_context())?;
+
             smbc_setOptionDebugToStderr(ctx, 1);
             smbc_setOptionUserData(ctx, auth_fn as *const _ as *mut c_void);
             smbc_setFunctionAuthDataWithContext(ctx, Some(Self::auth_wrapper::<F>));
-
+            smbc_setOptionOneSharePerServer(ctx, 1);
+            let (wg, un, pw) = auth_fn("", "");
+            smbc_set_credentials_with_fallback(
+                ctx,
+                wg.as_ptr() as *const c_char,
+                un.as_ptr() as *const c_char,
+                pw.as_ptr() as *const c_char,
+            );
+            smbc_setDebug(ctx, level as i32);
             let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
                 Ok(p) => p,
                 Err(e) => {
@@ -992,10 +1128,40 @@ impl<'a> Smbc<'a> {
                 }
             };
             smbc_set_context(ptr);
-            smbc_setDebug(ptr, level as i32);
-            smbc.context = Arc::new(Mutex::new(SmbcPtr(ptr)));
+            println!("{:?}", ptr);
+            Ok(Smbc {
+                context: Arc::new(Mutex::new(SmbcPtr(ptr))),
+                chmod_fn: try_ufnrc!(smbc_getFunctionChmod <- ptr),
+                close_fn: try_ufnrc!(smbc_getFunctionClose <- ptr),
+                closedir_fn: try_ufnrc!(smbc_getFunctionClosedir <- ptr),
+                creat_fn: try_ufnrc!(smbc_getFunctionCreat <- ptr),
+                fstat_fn: try_ufnrc!(smbc_getFunctionFstat <- ptr),
+                fstatvfs_fn: try_ufnrc!(smbc_getFunctionFstatVFS <- ptr),
+                fstatdir_fn: try_ufnrc!(smbc_getFunctionFstatdir <- ptr),
+                ftruncate_fn: try_ufnrc!(smbc_getFunctionFtruncate <- ptr),
+                getdents_fn: try_ufnrc!(smbc_getFunctionGetdents <- ptr),
+                getxattr_fn: try_ufnrc!(smbc_getFunctionGetxattr <- ptr),
+                listxattr_fn: try_ufnrc!(smbc_getFunctionListxattr <- ptr),
+                lseek_fn: try_ufnrc!(smbc_getFunctionLseek <- ptr),
+                lseekdir_fn: try_ufnrc!(smbc_getFunctionLseekdir <- ptr),
+                mkdir_fn: try_ufnrc!(smbc_getFunctionMkdir <- ptr),
+                open_fn: try_ufnrc!(smbc_getFunctionOpen <- ptr),
+                opendir_fn: try_ufnrc!(smbc_getFunctionOpendir <- ptr),
+                read_fn: try_ufnrc!(smbc_getFunctionRead <- ptr),
+                readdir_fn: try_ufnrc!(smbc_getFunctionReaddir <- ptr),
+                removexattr_fn: try_ufnrc!(smbc_getFunctionRemovexattr <- ptr),
+                rename_fn: try_ufnrc!(smbc_getFunctionRename <- ptr),
+                rmdir_fn: try_ufnrc!(smbc_getFunctionRmdir <- ptr),
+                setxattr_fn: try_ufnrc!(smbc_getFunctionSetxattr <- ptr),
+                stat_fn: try_ufnrc!(smbc_getFunctionStat <- ptr),
+                statvfs_fn: try_ufnrc!(smbc_getFunctionStatVFS <- ptr),
+                telldir_fn: try_ufnrc!(smbc_getFunctionTelldir <- ptr),
+                unlink_fn: try_ufnrc!(smbc_getFunctionUnlink <- ptr),
+                utimes_fn: try_ufnrc!(smbc_getFunctionUtimes <- ptr),
+                write_fn: try_ufnrc!(smbc_getFunctionWrite <- ptr),
+            })
         }
-        let copy_context = smbc.context.clone();
+        /*let copy_context = Arc::clone(&smbc.context);
         let readable_context = match copy_context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1011,9 +1177,114 @@ impl<'a> Smbc<'a> {
         });
         trace!(target: "smbc", "ctx netbios {:?}", unsafe {
             CString::from_raw((*readable_context.0).netbios_name)
-        });
-        Ok(smbc)
+        });*/
     }
+
+    /*pub fn new_auth(
+            wg: &'static str,
+            un: &'static str,
+            pw: &'static str,
+            level: u32,
+        ) -> Result<Smbc>
+    //where
+             //   F: Fn(&str, &str) -> (CString, CString, CString),
+        {
+            let init = Self::box_fn(wg, un, pw);
+
+            let mut smbc = Smbc {
+                context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
+                //func_ptr: Arc::new(init),
+            };
+            unsafe {
+                let init = Self::box_fn(wg, un, pw);
+                let ctx = result_from_ptr_mut(smbc_new_context())?;
+                smbc_set_credentials_with_fallback(
+                    ctx,
+                    wg.as_ptr() as *const c_char,
+                    un.as_ptr() as *const c_char,
+                    pw.as_ptr() as *const c_char,
+                );
+                smbc_setOptionDebugToStderr(ctx, 1);
+                let auth_fn = smbc_getFunctionAuthData(ctx);
+
+                smbc_setOptionUserData(ctx, init.as_ref() as *const _ as *mut c_void);
+                smbc_setFunctionAuthDataWithContext(ctx, Some(Self::auth));
+                let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        trace!(target: "smbc", "smbc_init failed {:?}", e);
+                        smbc_free_context(ctx, 1 as c_int);
+                        ptr::null_mut()
+                    }
+                };
+                smbc_set_context(ptr);
+                smbc_setDebug(ptr, level as i32);
+                smbc.context = Arc::new(Mutex::new(SmbcPtr(ptr)));
+            }
+            let copy_context = smbc.context.clone();
+            let readable_context = match copy_context.lock() {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("Poisoned mutex {:?}", e);
+                    panic!("POISONED MUTEX {:?}!!!!", e)
+                }
+            };
+            trace!(target: "smbc", "ctx workgroup {:?}", unsafe {
+            CString::from_raw((*readable_context.0).workgroup)
+            });
+            trace!(target: "smbc", "ctx user {:?}", unsafe {
+            CString::from_raw((*readable_context.0).user)
+            });
+            trace!(target: "smbc", "ctx netbios {:?}", unsafe {
+            CString::from_raw((*readable_context.0).netbios_name)
+            });
+            Ok(smbc)
+        }*/
+
+    extern "C" fn auth(
+        ctx: *mut SMBCCTX,
+        srv: *const c_char,
+        shr: *const c_char,
+        wg: *mut c_char,
+        _wglen: c_int,
+        un: *mut c_char,
+        _unlen: c_int,
+        pw: *mut c_char,
+        _pwlen: c_int,
+    ) {
+        unsafe {
+            let t_srv = CStr::from_ptr(srv);
+            let t_shr = CStr::from_ptr(shr);
+            let srv = t_srv.as_ptr();
+            let shr = t_shr.as_ptr();
+            trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
+
+            let auth: &extern "C" fn(&str, &str) -> (CString, CString, CString) =
+                std::mem::transmute(smbc_getOptionUserData(ctx) as *const c_void);
+            let auth = panic::AssertUnwindSafe(auth);
+            let r = panic::catch_unwind(|| {
+                trace!(target: "smbc", "auth with {:?}\\{:?}", srv, shr);
+                auth(&t_srv.to_string_lossy(), &t_shr.to_string_lossy())
+            });
+            //either use the provided credentials or the default guest
+            let (workgroup, username, password) = r.unwrap_or((
+                CString::new("WORKGROUP").unwrap(),
+                CString::new("guest").unwrap(),
+                CString::new("").unwrap(),
+            ));
+            //println!("Cred: {:?}, {:?}, {:?}", &workgroup, &username, &password);
+            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
+            let (wglen, unlen, pwlen) = (
+                workgroup.to_string_lossy().len(),
+                username.to_string_lossy().len(),
+                password.to_string_lossy().len(),
+            );
+            strncpy(wg, workgroup.as_ptr(), wglen);
+            strncpy(un, username.as_ptr(), unlen);
+            strncpy(pw, password.as_ptr(), pwlen);
+        }
+    }
+
     /// Auth wrapper
     extern "C" fn auth_wrapper<F>(
         ctx: *mut SMBCCTX,
@@ -1026,7 +1297,7 @@ impl<'a> Smbc<'a> {
         pw: *mut c_char,
         _pwlen: c_int,
     ) where
-        F: for<'b> Fn(&'b str, &'b str) -> (CString, CString, CString),
+        F: Fn(&str, &str) -> (CString, CString, CString),
     {
         unsafe {
             let t_srv = CStr::from_ptr(srv);
@@ -1039,7 +1310,6 @@ impl<'a> Smbc<'a> {
             let auth = panic::AssertUnwindSafe(auth);
             let r = panic::catch_unwind(|| {
                 trace!(target: "smbc", "auth with {:?}\\{:?}", srv, shr);
-                let (h, v) = (String::new(), String::new());
                 auth(&t_srv.to_string_lossy(), &t_shr.to_string_lossy())
             });
             //either use the provided credentials or the default guest
@@ -1048,6 +1318,7 @@ impl<'a> Smbc<'a> {
                 CString::new("guest").unwrap(),
                 CString::new("").unwrap(),
             ));
+            //println!("Cred: {:?}, {:?}, {:?}", &workgroup, &username, &password);
             trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
             let (wglen, unlen, pwlen) = (
                 workgroup.to_string_lossy().len(),
@@ -1085,7 +1356,7 @@ impl<'a> Smbc<'a> {
     ///
     pub fn create(&mut self, path: &Path, mode: Mode) -> Result<SmbcFile> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!(target: "smbc", "Attempting to retrieve create function");
+        trace!(target: "smbc", "Attempting to retrieve context");
         let ptr = match self.context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1093,18 +1364,23 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let creat_fn = try_ufnrc!(smbc_getFunctionCreat <- ptr);
-        trace!(target: "smbc", "Sucessfully retrieved create function, attempting to apply function");
+        trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
+
         unsafe {
-            let fd = result_from_ptr_mut(creat_fn(ptr.0, path.as_ptr(), mode.bits() as mode_t))?;
+            let fd =
+                result_from_ptr_mut((self.creat_fn)(ptr.0, path.as_ptr(), mode.bits() as mode_t))?;
             trace!(target: "smbc", "Returned value is {:?}", fd);
             if (fd as i64) < 0 {
                 trace!(target: "smbc", "Error: neg fd");
             }
             Ok(SmbcFile {
-                smbc: self.context.clone(),
+                smbc: Arc::clone(&self.context),
                 fd,
+                fstat_fn: self.fstat_fn,
+                ftruncate_fn: self.ftruncate_fn,
+                lseek_fn: self.lseek_fn,
+                read_fn: self.read_fn,
+                write_fn: self.write_fn,
             })
         }
     }
@@ -1135,7 +1411,7 @@ impl<'a> Smbc<'a> {
     ///
     pub fn chmod(&self, path: &Path, mode: Mode) -> Result<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!(target: "smbc", "Attempting to retrieve chmod function");
+        trace!(target: "smbc", "Attempting to retrieve context");
         let ptr = match self.context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1143,11 +1419,10 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let chmod_fn = try_ufnrc!(smbc_getFunctionChmod <- ptr);
-        trace!(target: "smbc", "Sucessfully retrieved chmod function, attempting to apply function");
+        trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
+
         unsafe {
-            to_result_with_le(chmod_fn(ptr.0, path.as_ptr(), mode.bits() as mode_t))?;
+            to_result_with_le((self.chmod_fn)(ptr.0, path.as_ptr(), mode.bits() as mode_t))?;
         }
         trace!(target: "smbc", "Chmod_fn ran");
         Ok(())
@@ -1208,7 +1483,7 @@ impl<'a> Smbc<'a> {
     ///
     pub fn open(&self, path: &Path, flags: OFlag, mode: Mode) -> Result<SmbcFile> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!(target: "smbc", "Attempting to retrieve open function");
+        trace!(target: "smbc", "Attempting to retrieve context");
         let ptr = match self.context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1216,18 +1491,22 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let open_fn = try_ufnrc!(smbc_getFunctionOpen <- ptr);
-        trace!(target: "smbc", "Sucessfully retrieved open function, attempting to apply function");
+
+        trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
         let fd = result_from_ptr_mut(unsafe {
-            open_fn(ptr.0, path.as_ptr(), flags.bits(), mode.bits())
+            (self.open_fn)(ptr.0, path.as_ptr(), flags.bits(), mode.bits())
         })?;
         if (fd as i64) < 0 {
             trace!(target: "smbc", "neg fd");
         }
         Ok(SmbcFile {
-            smbc: self.context.clone(),
+            smbc: Arc::clone(&self.context),
             fd,
+            fstat_fn: self.fstat_fn,
+            ftruncate_fn: self.ftruncate_fn,
+            lseek_fn: self.lseek_fn,
+            read_fn: self.read_fn,
+            write_fn: self.write_fn,
         })
     }
 
@@ -1250,7 +1529,7 @@ impl<'a> Smbc<'a> {
     ///
     pub fn opendir(&self, path: &Path) -> Result<SmbcDirectory> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!(target: "smbc", "Attempting to retrieve opendir function");
+        trace!(target: "smbc", "Attempting to retrieve context");
         let ptr = match self.context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1258,15 +1537,17 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let opendir_fn = try_ufnrc!(smbc_getFunctionOpendir <- ptr);
-        let handle = result_from_ptr_mut(unsafe { opendir_fn(ptr.0, path.as_ptr()) })?;
+        trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
+        let handle = result_from_ptr_mut(unsafe { (self.opendir_fn)(ptr.0, path.as_ptr()) })?;
         if (handle as i64) < 0 {
             trace!(target: "smbc", "Error: neg directory fd");
         }
         Ok(SmbcDirectory {
-            smbc: self.context.clone(),
+            smbc: Arc::clone(&self.context),
             handle,
+            lseekdir_fn: self.lseekdir_fn,
+            readdir_fn: self.readdir_fn,
+            telldir_fn: self.telldir_fn,
         })
     }
 
@@ -1278,7 +1559,7 @@ impl<'a> Smbc<'a> {
     ///
     pub fn mkdir(&self, path: &Path, mode: Mode) -> Result<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
-        trace!(target: "smbc", "Attempting to retrieve mkdir function");
+        trace!(target: "smbc", "Attempting to retrieve context");
         let ptr = match self.context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1286,9 +1567,9 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let mkdir_fn = try_ufnrc!(smbc_getFunctionMkdir <- ptr);
-        let handle = to_result_with_le(unsafe { mkdir_fn(ptr.0, path.as_ptr(), mode.bits()) })?;
+        trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
+        let handle =
+            to_result_with_le(unsafe { (self.mkdir_fn)(ptr.0, path.as_ptr(), mode.bits()) })?;
         if i64::from(handle) < 0 {
             trace!(target: "smbc", "Error: neg directory fd");
         }
@@ -1333,6 +1614,7 @@ impl<'a> Smbc<'a> {
     pub fn rename(&self, oldpath: &Path, newpath: &Path) -> Result<()> {
         let oldpath = CString::new(oldpath.as_os_str().as_bytes())?;
         let newpath = CString::new(newpath.as_os_str().as_bytes())?;
+        trace!(target: "smbc", "Attempting to retrieve context");
         let ptr = match self.context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1340,9 +1622,10 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let rename_fn = try_ufnrc!(smbc_getFunctionRename <- ptr);
-        to_result_with_le(unsafe { rename_fn(ptr.0, oldpath.as_ptr(), ptr.0, newpath.as_ptr()) })?;
+        trace!(target: "smbc", "Successfully retrieved context, attempting to apply function");
+        to_result_with_le(unsafe {
+            (self.rename_fn)(ptr.0, oldpath.as_ptr(), ptr.0, newpath.as_ptr())
+        })?;
         Ok(())
     }
 
@@ -1364,6 +1647,7 @@ impl<'a> Smbc<'a> {
     ///
     pub fn rmdir(&self, path: &Path) -> Result<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
+        trace!(target: "smbc", "Attempting to retreive context");
         let ptr = match self.context.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1371,9 +1655,8 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let rmdir_fn = try_ufnrc!(smbc_getFunctionRmdir <- ptr);
-        to_result_with_le(unsafe { rmdir_fn(ptr.0, path.as_ptr()) })?;
+        trace!(target: "smbc", "Successfully retrieved context, attempting to apply function");
+        to_result_with_le(unsafe { (self.rmdir_fn)(ptr.0, path.as_ptr()) })?;
         Ok(())
     }
 
@@ -1410,9 +1693,8 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let stat_fn = try_ufnrc!(smbc_getFunctionStat <- ptr);
-        let res = to_result_with_le(unsafe { stat_fn(ptr.0, path.as_ptr(), &mut stat_buf) })?;
+        let res =
+            to_result_with_le(unsafe { (self.stat_fn)(ptr.0, path.as_ptr(), &mut stat_buf) })?;
         if i64::from(res) < 0 {
             trace!(target: "smbc", "stat failed");
         }
@@ -1462,10 +1744,9 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let unlink_fn = try_ufnrc!(smbc_getFunctionUnlink <- ptr);
+
         unsafe {
-            to_result_with_le(unlink_fn(ptr.0, path.as_ptr()))?;
+            to_result_with_le((self.unlink_fn)(ptr.0, path.as_ptr()))?;
         }
         Ok(())
     }
@@ -1494,10 +1775,8 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let utimes_fn = try_ufnrc!(smbc_getFunctionUtimes <- ptr);
         unsafe {
-            to_result_with_le(utimes_fn(ptr.0, path.as_ptr(), tbuf.as_mut_ptr()))?;
+            to_result_with_le((self.utimes_fn)(ptr.0, path.as_ptr(), tbuf.as_mut_ptr()))?;
         }
         Ok(())
     }
@@ -1577,11 +1856,9 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let getxattr_fn = try_ufnrc!(smbc_getFunctionGetxattr <- ptr);
         // Set your buffer to capacity len here
         let len = to_result_with_le(unsafe {
-            getxattr_fn(
+            (self.getxattr_fn)(
                 ptr.0,
                 path.as_ptr(),
                 name.as_ptr(),
@@ -1595,7 +1872,7 @@ impl<'a> Smbc<'a> {
             trace!(target: "smbc", "getxattr failed");
         }
         let res = to_result_with_le(unsafe {
-            getxattr_fn(
+            (self.getxattr_fn)(
                 ptr.0,
                 path.as_ptr(),
                 name.as_ptr(),
@@ -1628,12 +1905,10 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let listxattr_fn = try_ufnrc!(smbc_getFunctionListxattr <- ptr);
         // Set your buffer to capacity len here
         let temp: Vec<u8> = vec![];
         let len = to_result_with_le(unsafe {
-            listxattr_fn(ptr.0, path.as_ptr(), temp.as_ptr() as *mut c_char, 0)
+            (self.listxattr_fn)(ptr.0, path.as_ptr(), temp.as_ptr() as *mut c_char, 0)
         })?;
         trace!(target: "smbc", "Sizing buffer to {}", len);
         let mut value: Vec<u8> = Vec::with_capacity(len as usize);
@@ -1642,7 +1917,7 @@ impl<'a> Smbc<'a> {
         }
 
         let res = to_result_with_le(unsafe {
-            listxattr_fn(
+            (self.listxattr_fn)(
                 ptr.0,
                 path.as_ptr(),
                 value.as_ptr() as *mut c_char,
@@ -1688,10 +1963,8 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let removexattr_fn = try_ufnrc!(smbc_getFunctionRemovexattr <- ptr);
         unsafe {
-            to_result_with_le(removexattr_fn(ptr.0, path.as_ptr(), name.as_ptr()))?;
+            to_result_with_le((self.removexattr_fn)(ptr.0, path.as_ptr(), name.as_ptr()))?;
         }
         Ok(())
     }
@@ -1746,10 +2019,8 @@ impl<'a> Smbc<'a> {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let setxattr_fn = try_ufnrc!(smbc_getFunctionSetxattr <- ptr);
         let res = unsafe {
-            setxattr_fn(
+            (self.setxattr_fn)(
                 ptr.0,
                 path.as_ptr(),
                 name.as_ptr(),
@@ -1795,10 +2066,8 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let read_fn = try_ufnrc!(smbc_getFunctionRead <- ptr);
         let bytes_read = to_result_with_le(unsafe {
-            read_fn(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, count as usize)
+            (self.read_fn)(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, count as usize)
         })?;
         if (bytes_read as i64) < 0 {
             trace!(target: "smbc", "read failed");
@@ -1830,10 +2099,8 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let write_fn = try_ufnrc!(smbc_getFunctionWrite <- ptr);
         let bytes_wrote = to_result_with_le(unsafe {
-            write_fn(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
+            (self.write_fn)(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
         })?;
         if (bytes_wrote as i64) < 0 {
             trace!(target: "smbc", "write failed");
@@ -1870,10 +2137,10 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let lseek_fn = try_ufnrc!(smbc_getFunctionLseek <- ptr);
-        let res =
-            to_result_with_errno(unsafe { lseek_fn(ptr.0, self.fd, offset, whence) }, EINVAL)?;
+        let res = to_result_with_errno(
+            unsafe { (self.lseek_fn)(ptr.0, self.fd, offset, whence) },
+            EINVAL,
+        )?;
         Ok(res as off_t)
     }
 
@@ -1894,9 +2161,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let fstat_fn = try_ufnrc!(smbc_getFunctionFstat <- ptr);
-        let res = to_result_with_le(unsafe { fstat_fn(ptr.0, self.fd, &mut stat_buf) })?;
+        let res = to_result_with_le(unsafe { (self.fstat_fn)(ptr.0, self.fd, &mut stat_buf) })?;
         if i64::from(res) < 0 {
             trace!(target: "smbc", "fstat failed");
         }
@@ -1939,9 +2204,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let ftruncate_fn = try_ufnrc!(smbc_getFunctionFtruncate <- ptr);
-        to_result_with_le(unsafe { ftruncate_fn(ptr.0, self.fd, size as off_t) })?;
+        to_result_with_le(unsafe { (self.ftruncate_fn)(ptr.0, self.fd, size as off_t) })?;
         Ok(())
     }
 }
@@ -1960,10 +2223,8 @@ impl Read for SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let read_fn = try_ufnrc!(smbc_getFunctionRead <- ptr);
         let bytes_read = to_result_with_le(unsafe {
-            read_fn(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, buf.len() as _)
+            (self.read_fn)(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, buf.len() as _)
         })?;
         Ok(bytes_read as usize)
     }
@@ -1983,10 +2244,8 @@ impl Write for SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let write_fn = try_ufnrc!(smbc_getFunctionWrite <- ptr);
         let bytes_wrote = to_result_with_le(unsafe {
-            write_fn(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
+            (self.write_fn)(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
         })?;
         Ok(bytes_wrote as usize)
     }
@@ -2011,15 +2270,13 @@ impl Seek for SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let lseek_fn = try_ufnrc!(smbc_getFunctionLseek <- ptr);
         let (whence, off) = match pos {
             SeekFrom::Start(p) => (SEEK_SET, p as off_t),
             SeekFrom::End(p) => (SEEK_END, p as off_t),
             SeekFrom::Current(p) => (SEEK_CUR, p as off_t),
         };
         let res = to_result_with_errno(
-            unsafe { lseek_fn(ptr.0, self.fd, off, whence as i32) },
+            unsafe { (self.lseek_fn)(ptr.0, self.fd, off, whence as i32) },
             EINVAL,
         )?;
         Ok(res as u64)
@@ -2117,10 +2374,7 @@ impl SmbcDirectory {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let readdir_fn = try_ufnrc!(smbc_getFunctionReaddir <- ptr);
-        trace!(target: "smbc", "Attempting to apply readdir function {:?}", self.handle);
-        let dirent = result_from_ptr_mut(unsafe { readdir_fn(ptr.0, self.handle) })?;
+        let dirent = result_from_ptr_mut(unsafe { (self.readdir_fn)(ptr.0, self.handle) })?;
         trace!(target: "smbc", "readdir function successful!");
         if dirent.is_null() {
             let e = Error::new(ErrorKind::Other, "dirent null");
@@ -2180,10 +2434,8 @@ impl SmbcDirectory {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let lseekdir_fn = try_ufnrc!(smbc_getFunctionLseekdir <- ptr);
         let res = to_result_with_errno(
-            unsafe { lseekdir_fn(ptr.0, self.handle, offset as off_t) },
+            unsafe { (self.lseekdir_fn)(ptr.0, self.handle, offset as off_t) },
             EINVAL,
         )?;
         if i64::from(res) < 0 {
@@ -2213,9 +2465,7 @@ impl SmbcDirectory {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let telldir_fn = try_ufnrc!(smbc_getFunctionTelldir <- ptr);
-        let res = to_result_with_errno(unsafe { telldir_fn(ptr.0, self.handle) }, EINVAL)?;
+        let res = to_result_with_errno(unsafe { (self.telldir_fn)(ptr.0, self.handle) }, EINVAL)?;
         Ok(res as off_t)
     }
 }
@@ -2238,20 +2488,7 @@ impl Iterator for SmbcDirectory {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let readdir_fn = match try_iter!(smbc_getFunctionReaddir <- ptr) {
-            Ok(f) => f,
-            Err(e) => match e {
-                Some(e1) => {
-                    return Some(Err(e1));
-                }
-                None => {
-                    return None;
-                }
-            },
-        };
-        trace!(target: "smbc", "Readdir retrieved, attempting to apply function");
-        let dirent = match result_from_ptr_mut(unsafe { readdir_fn(ptr.0, self.handle) }) {
+        let dirent = match result_from_ptr_mut(unsafe { (self.readdir_fn)(ptr.0, self.handle) }) {
             Ok(d) => d,
             Err(e) => {
                 trace!(target: "smbc", "Error! {:?}", e);
@@ -2315,15 +2552,13 @@ impl Seek for SmbcDirectory {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let ptr = ptr.deref();
-        let lseekdir_fn = try_ufnrc!(smbc_getFunctionLseekdir <- ptr);
         let (_, off) = match pos {
             SeekFrom::Start(p) => (SEEK_SET, p as off_t),
             SeekFrom::End(p) => (SEEK_END, p as off_t),
             SeekFrom::Current(p) => (SEEK_CUR, p as off_t),
         };
         let res = to_result_with_errno(
-            unsafe { lseekdir_fn(ptr.0, self.handle, off as off_t) },
+            unsafe { (self.lseekdir_fn)(ptr.0, self.handle, off as off_t) },
             EINVAL,
         )?;
         Ok(res as u64)
