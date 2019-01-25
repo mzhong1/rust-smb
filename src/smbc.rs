@@ -1079,7 +1079,6 @@ impl Smbc {
                 }
             };
             smbc_set_context(ptr);
-            println!("{:?}", ptr);
             Ok(Smbc {
                 context: Arc::new(Mutex::new(SmbcPtr(ptr))),
                 chmod_fn: try_ufnrc!(smbc_getFunctionChmod <- ptr),
