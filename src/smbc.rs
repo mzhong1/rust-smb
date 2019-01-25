@@ -44,7 +44,24 @@ use smbclient_sys::*;
 use bitflags::bitflags;
 use log::{error, trace};
 use percent_encoding::*;
+use lazy_static::*;
 
+lazy_static! {
+    pub static ref auth_fn_store: Arc<Mutex<Fn(&str, &str) -> (CString, CString, CString) + Send>> = {
+        let src_auth = move |_host: &str, _share: &str| {
+            (
+                CString::new("WORKGROUP").unwrap(),
+                CString::new("guest").unwrap(),
+                CString::new("").unwrap(),
+            )
+        };
+        //let mut v: Vec<Box<Fn(&str, &str) -> (CString, CString, CString) + Send>> = Vec::new();
+        //v.push(Box::new(src_auth));
+        Arc::new(Mutex::new(src_auth))
+    };
+
+    pub static ref user_data: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec!["WORKGROUP".to_string(), "guest".to_string(), "".to_string()]));
+}
 //const SMBC_FALSE: smbc_bool = 0;
 //const SMBC_TRUE: smbc_bool = 1;
 #[derive(Clone)]
@@ -1306,30 +1323,79 @@ impl Smbc {
             let shr = t_shr.as_ptr();
             trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
 
-            let auth: &F = &*(smbc_getOptionUserData(ctx) as *const c_void as *const F);
+            /*let auth: &F = &*(smbc_getOptionUserData(ctx) as *const c_void as *const F);
             let auth = panic::AssertUnwindSafe(auth);
             let r = panic::catch_unwind(|| {
                 trace!(target: "smbc", "auth with {:?}\\{:?}", srv, shr);
                 auth(&t_srv.to_string_lossy(), &t_shr.to_string_lossy())
-            });
+            });*/
             //either use the provided credentials or the default guest
-            let (workgroup, username, password) = r.unwrap_or((
-                CString::new("WORKGROUP").unwrap(),
-                CString::new("guest").unwrap(),
-                CString::new("").unwrap(),
-            ));
+            let data = match user_data.lock() {
+                Ok(e) => e,
+                Err(_) => panic!("Mutex poisoned!"),
+            };
+            let (workgroup, username, password) = (
+                data.get(0).unwrap(),
+                data.get(1).unwrap(),
+                data.get(2).unwrap(),
+            );
+            //println!("{:?}, {:?}, {:?}", workgroup, username, password);
+            let (wg_ptr, un_ptr, pw_ptr) = (
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+                CString::from_vec_unchecked(username.clone().into_bytes()),
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+            );
             //println!("Cred: {:?}, {:?}, {:?}", &workgroup, &username, &password);
             trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
-            let (wglen, unlen, pwlen) = (
-                workgroup.to_string_lossy().len(),
-                username.to_string_lossy().len(),
-                password.to_string_lossy().len(),
-            );
-            strncpy(wg, workgroup.as_ptr(), wglen);
-            strncpy(un, username.as_ptr(), unlen);
-            strncpy(pw, password.as_ptr(), pwlen);
+            let (wglen, unlen, pwlen) = (workgroup.len(), username.len(), password.len());
+
+            strncpy(wg, wg_ptr.as_ptr(), wglen);
+            strncpy(un, un_ptr.as_ptr(), unlen);
+            strncpy(pw, pw_ptr.as_ptr(), pwlen);
         }
     }
+     pub extern "C" fn set_data_wrapper(
+        srv: *const c_char,
+        shr: *const c_char,
+        wg: *mut c_char,
+        wglen: c_int,
+        un: *mut c_char,
+        unlen: c_int,
+        pw: *mut c_char,
+        pwlen: c_int,
+    ) {
+        unsafe {
+            let t_srv = CStr::from_ptr(srv);
+            let t_shr = CStr::from_ptr(shr);
+            let srv = t_srv.as_ptr();
+            let shr = t_shr.as_ptr();
+            trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
+            //either use the provided credentials or the default guest
+            let data = match user_data.lock() {
+                Ok(e) => e,
+                Err(_) => panic!("Mutex poisoned!"),
+            };
+            let (workgroup, username, password) = (
+                data.get(0).unwrap(),
+                data.get(1).unwrap(),
+                data.get(2).unwrap(),
+            );
+            //println!("{:?}, {:?}, {:?}", workgroup, username, password);
+            let (wg_ptr, un_ptr, pw_ptr) = (
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+                CString::from_vec_unchecked(username.clone().into_bytes()),
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+            );
+            //println!("Cred: {:?}, {:?}, {:?}", &workgroup, &username, &password);
+            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
+            let (wglen, unlen, pwlen) = (workgroup.len(), username.len(), password.len());
+
+            strncpy(wg, wg_ptr.as_ptr(), wglen);
+            strncpy(un, un_ptr.as_ptr(), unlen);
+            strncpy(pw, pw_ptr.as_ptr(), pwlen);
+        }
+    }
+
 
     ///
     /// Create a file on an SMB server.
