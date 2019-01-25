@@ -23,7 +23,6 @@ use std::fmt;
 use std::io;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::mem::zeroed;
-use std::ops::Deref;
 use std::os::raw::c_void;
 use std::os::unix::ffi::OsStrExt;
 use std::panic;
@@ -42,11 +41,18 @@ use nom::types::CompleteByteSlice;
 use smbclient_sys::*;
 
 use bitflags::bitflags;
+use lazy_static::*;
 use log::{error, trace};
 use percent_encoding::*;
 
-//const SMBC_FALSE: smbc_bool = 0;
-//const SMBC_TRUE: smbc_bool = 1;
+lazy_static! {
+    pub static ref user_data: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![
+        "WORKGROUP".to_string(),
+        "guest".to_string(),
+        "".to_string()
+    ]));
+}
+
 #[derive(Clone)]
 /// a pointer to hold the smbc context
 struct SmbcPtr(*mut SMBCCTX);
@@ -63,21 +69,10 @@ impl Drop for SmbcPtr {
     }
 }
 
-//Same as result from ptr mut
-/*fn check_mut_ptr<T>(ptr: *mut T) -> io::Result<*mut T> {
-    if ptr.is_null() {
-        Err(Error::last_os_error())
-    } else {
-        Ok(ptr)
-    }
-}*/
-
 #[derive(Clone)]
 /// The Smbc Object.  Contains a pointer to a Samba context
 pub struct Smbc {
     context: Arc<Mutex<SmbcPtr>>,
-    //func_ptr: Arc<&'static Fn(&str, &str) -> (CString, CString, CString)>,
-    //func_ptr: Arc<Box<Fn(&str, &str) -> (CString, CString, CString)>>,
     pub chmod_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, mode: mode_t) -> c_int),
     pub close_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, file: *mut SMBCFILE) -> c_int),
@@ -1031,87 +1026,43 @@ impl Drop for SmbcFile {
 }
 
 impl Smbc {
-    /* pub fn new(
-        auth_fn: extern "C" fn(
-            ctx: *mut SMBCCTX,
-            srv: *const c_char,
-            shr: *const c_char,
-            wg: *mut c_char,
-            wglen: c_int,
-            un: *mut c_char,
-            unlen: c_int,
-            pw: *mut c_char,
-            pwlen: c_int,
-        ) -> (),
-        level: u32,
-    ) -> Result<Self> {
-        let mut smbc = Smbc {
-            context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
+    pub fn set_data(wg: String, un: String, pw: String) {
+        let mut data = match user_data.lock() {
+            Ok(e) => e,
+            Err(_) => panic!("Mutex poisoned!"),
         };
-        unsafe {
-            let ctx = result_from_ptr_mut(smbc_new_context())?;
-            smbc_setOptionDebugToStderr(ctx, 1);
-            smbc_setOptionUserData(ctx, auth_fn as *const smbc_get_auth_data_fn as *mut c_void);
-            smbc_setFunctionAuthDataWithContext(ctx, Some(auth_fn));
-            let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
-                Ok(p) => p,
-                Err(e) => {
-                    trace!(target: "smbc", "smbc_init failed {:?}", e);
-                    smbc_free_context(ctx, 1 as c_int);
-                    ptr::null_mut()
-                }
-            };
-            smbc_set_context(ptr);
-            smbc_setDebug(ptr, level as i32);
-            smbc.context = Arc::new(Mutex::new(SmbcPtr(ptr)));
-        }
-        /*let copy_context = Arc::clone(&smbc.context);
-        let readable_context = match copy_context.lock() {
-            Ok(p) => p,
-            Err(e) => {
-                error!("Poisoned mutex {:?}", e);
-                panic!("POISONED MUTEX {:?}!!!!", e)
-            }
-        };
-        trace!(target: "smbc", "ctx workgroup {:?}", unsafe {
-            CString::from_raw((*readable_context.0).workgroup)
-        });
-        trace!(target: "smbc", "ctx user {:?}", unsafe {
-            CString::from_raw((*readable_context.0).user)
-        });
-        trace!(target: "smbc", "ctx netbios {:?}", unsafe {
-            CString::from_raw((*readable_context.0).netbios_name)
-        });*/
-    Ok(smbc)
-    }*/
-
-    pub fn box_fn(
-        wg: &'static str,
-        un: &'static str,
-        pw: &'static str,
-    ) -> Box<Fn(&str, &str) -> (CString, CString, CString)> {
-        let auth = move |host: &str, share: &str| {
-            (
-                CString::new(wg).unwrap(),
-                CString::new(un).unwrap(),
-                CString::new(pw).unwrap(),
-            )
-        };
-        Box::new(auth)
+        data[0] = wg;
+        data[1] = un;
+        data[2] = pw;
     }
     /// new function with Authentication built in
-    pub fn new_with_auth<F>(auth_fn: &F, level: u32) -> Result<Smbc>
-    where
-        F: Fn(&str, &str) -> (CString, CString, CString),
-    {
+    pub fn new_with_auth(level: u32) -> Result<Smbc> {
         unsafe {
+            smbc_init(Some(Self::set_data_wrapper), level as i32);
             let ctx = result_from_ptr_mut(smbc_new_context())?;
-
             smbc_setOptionDebugToStderr(ctx, 1);
-            smbc_setOptionUserData(ctx, auth_fn as *const _ as *mut c_void);
-            smbc_setFunctionAuthDataWithContext(ctx, Some(Self::auth_wrapper::<F>));
+            smbc_setOptionUserData(ctx, Self::auth_wrapper as *mut c_void);
+            smbc_setFunctionAuthData(ctx, Some(Self::set_data_wrapper));
+            smbc_setFunctionAuthDataWithContext(ctx, Some(Self::auth_wrapper));
             smbc_setOptionOneSharePerServer(ctx, 1);
-            let (wg, un, pw) = auth_fn("", "");
+            let data = match user_data.lock() {
+                Ok(e) => e,
+                Err(_) => panic!("Mutex poisoned!"),
+            };
+            let (wg, un, pw) = (
+                match data.get(0) {
+                    Some(e) => e.to_string(),
+                    None => "WORKGROUP".to_string(),
+                },
+                match data.get(1) {
+                    Some(e) => e.to_string(),
+                    None => "guest".to_string(),
+                },
+                match data.get(2) {
+                    Some(e) => e.to_string(),
+                    None => "".to_string(),
+                },
+            );
             smbc_set_credentials_with_fallback(
                 ctx,
                 wg.as_ptr() as *const c_char,
@@ -1161,88 +1112,11 @@ impl Smbc {
                 write_fn: try_ufnrc!(smbc_getFunctionWrite <- ptr),
             })
         }
-        /*let copy_context = Arc::clone(&smbc.context);
-        let readable_context = match copy_context.lock() {
-            Ok(p) => p,
-            Err(e) => {
-                error!("Poisoned mutex {:?}", e);
-                panic!("POISONED MUTEX {:?}!!!!", e)
-            }
-        };
-        trace!(target: "smbc", "ctx workgroup {:?}", unsafe {
-            CString::from_raw((*readable_context.0).workgroup)
-        });
-        trace!(target: "smbc", "ctx user {:?}", unsafe {
-            CString::from_raw((*readable_context.0).user)
-        });
-        trace!(target: "smbc", "ctx netbios {:?}", unsafe {
-            CString::from_raw((*readable_context.0).netbios_name)
-        });*/
     }
 
-    /*pub fn new_auth(
-            wg: &'static str,
-            un: &'static str,
-            pw: &'static str,
-            level: u32,
-        ) -> Result<Smbc>
-    //where
-             //   F: Fn(&str, &str) -> (CString, CString, CString),
-        {
-            let init = Self::box_fn(wg, un, pw);
-
-            let mut smbc = Smbc {
-                context: Arc::new(Mutex::new(SmbcPtr(ptr::null_mut()))),
-                //func_ptr: Arc::new(init),
-            };
-            unsafe {
-                let init = Self::box_fn(wg, un, pw);
-                let ctx = result_from_ptr_mut(smbc_new_context())?;
-                smbc_set_credentials_with_fallback(
-                    ctx,
-                    wg.as_ptr() as *const c_char,
-                    un.as_ptr() as *const c_char,
-                    pw.as_ptr() as *const c_char,
-                );
-                smbc_setOptionDebugToStderr(ctx, 1);
-                let auth_fn = smbc_getFunctionAuthData(ctx);
-
-                smbc_setOptionUserData(ctx, init.as_ref() as *const _ as *mut c_void);
-                smbc_setFunctionAuthDataWithContext(ctx, Some(Self::auth));
-                let ptr: *mut SMBCCTX = match result_from_ptr_mut(smbc_init_context(ctx)) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        trace!(target: "smbc", "smbc_init failed {:?}", e);
-                        smbc_free_context(ctx, 1 as c_int);
-                        ptr::null_mut()
-                    }
-                };
-                smbc_set_context(ptr);
-                smbc_setDebug(ptr, level as i32);
-                smbc.context = Arc::new(Mutex::new(SmbcPtr(ptr)));
-            }
-            let copy_context = smbc.context.clone();
-            let readable_context = match copy_context.lock() {
-                Ok(p) => p,
-                Err(e) => {
-                    error!("Poisoned mutex {:?}", e);
-                    panic!("POISONED MUTEX {:?}!!!!", e)
-                }
-            };
-            trace!(target: "smbc", "ctx workgroup {:?}", unsafe {
-            CString::from_raw((*readable_context.0).workgroup)
-            });
-            trace!(target: "smbc", "ctx user {:?}", unsafe {
-            CString::from_raw((*readable_context.0).user)
-            });
-            trace!(target: "smbc", "ctx netbios {:?}", unsafe {
-            CString::from_raw((*readable_context.0).netbios_name)
-            });
-            Ok(smbc)
-        }*/
-
-    extern "C" fn auth(
-        ctx: *mut SMBCCTX,
+    /// Auth wrapper
+    extern "C" fn auth_wrapper(
+        _ctx: *mut SMBCCTX,
         srv: *const c_char,
         shr: *const c_char,
         wg: *mut c_char,
@@ -1255,39 +1129,43 @@ impl Smbc {
         unsafe {
             let t_srv = CStr::from_ptr(srv);
             let t_shr = CStr::from_ptr(shr);
-            let srv = t_srv.as_ptr();
-            let shr = t_shr.as_ptr();
+            let _srv = t_srv.as_ptr();
+            let _shr = t_shr.as_ptr();
             trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
 
-            let auth: &extern "C" fn(&str, &str) -> (CString, CString, CString) =
-                std::mem::transmute(smbc_getOptionUserData(ctx) as *const c_void);
-            let auth = panic::AssertUnwindSafe(auth);
-            let r = panic::catch_unwind(|| {
-                trace!(target: "smbc", "auth with {:?}\\{:?}", srv, shr);
-                auth(&t_srv.to_string_lossy(), &t_shr.to_string_lossy())
-            });
             //either use the provided credentials or the default guest
-            let (workgroup, username, password) = r.unwrap_or((
-                CString::new("WORKGROUP").unwrap(),
-                CString::new("guest").unwrap(),
-                CString::new("").unwrap(),
-            ));
-            //println!("Cred: {:?}, {:?}, {:?}", &workgroup, &username, &password);
-            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
-            let (wglen, unlen, pwlen) = (
-                workgroup.to_string_lossy().len(),
-                username.to_string_lossy().len(),
-                password.to_string_lossy().len(),
+            let data = match user_data.lock() {
+                Ok(e) => e,
+                Err(_) => panic!("Mutex poisoned!"),
+            };
+            let (workgroup, username, password) = (
+                match data.get(0) {
+                    Some(e) => e.to_string(),
+                    None => "WORKGROUP".to_string(),
+                },
+                match data.get(1) {
+                    Some(e) => e.to_string(),
+                    None => "guest".to_string(),
+                },
+                match data.get(2) {
+                    Some(e) => e.to_string(),
+                    None => "".to_string(),
+                },
             );
-            strncpy(wg, workgroup.as_ptr(), wglen);
-            strncpy(un, username.as_ptr(), unlen);
-            strncpy(pw, password.as_ptr(), pwlen);
+            let (wg_ptr, un_ptr, pw_ptr) = (
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+                CString::from_vec_unchecked(username.clone().into_bytes()),
+                CString::from_vec_unchecked(password.clone().into_bytes()),
+            );
+            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
+            let (wglen, unlen, pwlen) = (workgroup.len(), username.len(), password.len());
+
+            strncpy(wg, wg_ptr.as_ptr(), wglen);
+            strncpy(un, un_ptr.as_ptr(), unlen);
+            strncpy(pw, pw_ptr.as_ptr(), pwlen);
         }
     }
-
-    /// Auth wrapper
-    extern "C" fn auth_wrapper<F>(
-        ctx: *mut SMBCCTX,
+    pub extern "C" fn set_data_wrapper(
         srv: *const c_char,
         shr: *const c_char,
         wg: *mut c_char,
@@ -1296,38 +1174,43 @@ impl Smbc {
         _unlen: c_int,
         pw: *mut c_char,
         _pwlen: c_int,
-    ) where
-        F: Fn(&str, &str) -> (CString, CString, CString),
-    {
+    ) {
         unsafe {
             let t_srv = CStr::from_ptr(srv);
             let t_shr = CStr::from_ptr(shr);
-            let srv = t_srv.as_ptr();
-            let shr = t_shr.as_ptr();
+            let _srv = t_srv.as_ptr();
+            let _shr = t_shr.as_ptr();
             trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
-
-            let auth: &F = &*(smbc_getOptionUserData(ctx) as *const c_void as *const F);
-            let auth = panic::AssertUnwindSafe(auth);
-            let r = panic::catch_unwind(|| {
-                trace!(target: "smbc", "auth with {:?}\\{:?}", srv, shr);
-                auth(&t_srv.to_string_lossy(), &t_shr.to_string_lossy())
-            });
             //either use the provided credentials or the default guest
-            let (workgroup, username, password) = r.unwrap_or((
-                CString::new("WORKGROUP").unwrap(),
-                CString::new("guest").unwrap(),
-                CString::new("").unwrap(),
-            ));
-            //println!("Cred: {:?}, {:?}, {:?}", &workgroup, &username, &password);
-            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
-            let (wglen, unlen, pwlen) = (
-                workgroup.to_string_lossy().len(),
-                username.to_string_lossy().len(),
-                password.to_string_lossy().len(),
+            let data = match user_data.lock() {
+                Ok(e) => e,
+                Err(_) => panic!("Mutex poisoned!"),
+            };
+            let (workgroup, username, password) = (
+                match data.get(0) {
+                    Some(e) => e.to_string(),
+                    None => "WORKGROUP".to_string(),
+                },
+                match data.get(1) {
+                    Some(e) => e.to_string(),
+                    None => "guest".to_string(),
+                },
+                match data.get(2) {
+                    Some(e) => e.to_string(),
+                    None => "".to_string(),
+                },
             );
-            strncpy(wg, workgroup.as_ptr(), wglen);
-            strncpy(un, username.as_ptr(), unlen);
-            strncpy(pw, password.as_ptr(), pwlen);
+            let (wg_ptr, un_ptr, pw_ptr) = (
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+                CString::from_vec_unchecked(username.clone().into_bytes()),
+                CString::from_vec_unchecked(password.clone().into_bytes()),
+            );
+            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
+            let (wglen, unlen, pwlen) = (workgroup.len(), username.len(), password.len());
+
+            strncpy(wg, wg_ptr.as_ptr(), wglen);
+            strncpy(un, un_ptr.as_ptr(), unlen);
+            strncpy(pw, pw_ptr.as_ptr(), pwlen);
         }
     }
 
