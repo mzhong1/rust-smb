@@ -740,20 +740,12 @@ impl fmt::Display for ACE {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ACE::Numeric(s, atype, flags, mask) => match atype {
-                AceAtype::ALLOWED => write!(
-                    f,
-                    "{}:0/{:x}/{}",
-                    format!("{}", s),
-                    flags.bits(),
-                    mask.bits()
-                ),
-                AceAtype::DENIED => write!(
-                    f,
-                    "{}:1/{:x}/{}",
-                    format!("{}", s),
-                    flags.bits(),
-                    mask.bits()
-                ),
+                AceAtype::ALLOWED => {
+                    write!(f, "{}:0/{}/{}", format!("{}", s), flags.bits(), mask.bits(),)
+                }
+                AceAtype::DENIED => {
+                    write!(f, "{}:1/{}/{}", format!("{}", s), flags.bits(), mask.bits())
+                }
             },
             ACE::Named(sid, atype, flags, mask) => match atype {
                 AceAtype::ALLOWED => write!(
@@ -1029,7 +1021,7 @@ impl Smbc {
     pub fn set_data(wg: String, un: String, pw: String) {
         let mut data = match user_data.lock() {
             Ok(e) => e,
-            Err(_) => panic!("Mutex poisoned!"),
+            Err(e) => panic!("Error {:?} Mutex poisoned!", e),
         };
         data[0] = wg;
         data[1] = un;
@@ -1047,7 +1039,7 @@ impl Smbc {
             smbc_setOptionOneSharePerServer(ctx, 1);
             let data = match user_data.lock() {
                 Ok(e) => e,
-                Err(_) => panic!("Mutex poisoned!"),
+                Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
             let (wg, un, pw) = (
                 match data.get(0) {
@@ -1135,7 +1127,7 @@ impl Smbc {
             //either use the provided credentials or the default guest
             let data = match user_data.lock() {
                 Ok(e) => e,
-                Err(_) => panic!("Mutex poisoned!"),
+                Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
             let (workgroup, username, password) = (
                 match data.get(0) {
@@ -1164,7 +1156,7 @@ impl Smbc {
             strncpy(pw, pw_ptr.as_ptr(), pwlen);
         }
     }
-    pub extern "C" fn set_data_wrapper(
+    extern "C" fn set_data_wrapper(
         srv: *const c_char,
         shr: *const c_char,
         wg: *mut c_char,
@@ -1183,7 +1175,7 @@ impl Smbc {
             //either use the provided credentials or the default guest
             let data = match user_data.lock() {
                 Ok(e) => e,
-                Err(_) => panic!("Mutex poisoned!"),
+                Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
             let (workgroup, username, password) = (
                 match data.get(0) {
