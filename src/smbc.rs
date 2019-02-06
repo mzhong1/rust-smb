@@ -46,7 +46,7 @@ use log::{error, trace};
 use percent_encoding::*;
 
 lazy_static! {
-    pub static ref user_data: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![
+    pub static ref USER_DATA: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![
         "WORKGROUP".to_string(),
         "guest".to_string(),
         "".to_string()
@@ -1019,7 +1019,7 @@ impl Drop for SmbcFile {
 
 impl Smbc {
     pub fn set_data(wg: String, un: String, pw: String) {
-        let mut data = match user_data.lock() {
+        let mut data = match USER_DATA.lock() {
             Ok(e) => e,
             Err(e) => panic!("Error {:?} Mutex poisoned!", e),
         };
@@ -1037,7 +1037,7 @@ impl Smbc {
             smbc_setFunctionAuthData(ctx, Some(Self::set_data_wrapper));
             smbc_setFunctionAuthDataWithContext(ctx, Some(Self::auth_wrapper));
             smbc_setOptionOneSharePerServer(ctx, 1);
-            let data = match user_data.lock() {
+            let data = match USER_DATA.lock() {
                 Ok(e) => e,
                 Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
@@ -1125,7 +1125,7 @@ impl Smbc {
             trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
 
             //either use the provided credentials or the default guest
-            let data = match user_data.lock() {
+            let data = match USER_DATA.lock() {
                 Ok(e) => e,
                 Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
@@ -1173,7 +1173,7 @@ impl Smbc {
             let _shr = t_shr.as_ptr();
             trace!(target: "smbc", "authenticating on {:?}\\{:?}", &t_srv, &t_shr);
             //either use the provided credentials or the default guest
-            let data = match user_data.lock() {
+            let data = match USER_DATA.lock() {
                 Ok(e) => e,
                 Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
