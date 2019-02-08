@@ -45,6 +45,9 @@ use lazy_static::*;
 use log::{error, trace};
 use percent_encoding::*;
 
+/// NOTE: Any weird formats can be checked against the libsmb-xxx.c files in the samba source code.
+/// Feel free to make edits if they ever actually get updated (probably never)
+
 lazy_static! {
     pub static ref USER_DATA: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![
         "WORKGROUP".to_string(),
