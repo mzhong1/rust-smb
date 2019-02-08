@@ -1018,6 +1018,15 @@ impl Drop for SmbcFile {
 }
 
 impl Smbc {
+    /// set the user authentication data
+    ///
+    /// @param wg   The workgroup of the user
+    ///
+    /// @param un   The username of the user
+    ///
+    /// @param pw   The password of the user
+    ///
+    /// @note: This applies to all contexts
     pub fn set_data(wg: String, un: String, pw: String) {
         let mut data = match USER_DATA.lock() {
             Ok(e) => e,
@@ -1027,7 +1036,13 @@ impl Smbc {
         data[1] = un;
         data[2] = pw;
     }
-    /// new function with Authentication built in
+    /// new function with Authentication built in, create a new context
+    ///
+    /// @param level    the debug level of the context
+    ///
+    /// @return         return a new Smbc context with user authentication
+    ///                 set by set_data (or default). Error should it fail.
+    ///
     pub fn new_with_auth(level: u32) -> Result<Smbc> {
         unsafe {
             smbc_init(Some(Self::set_data_wrapper), level as i32);
@@ -1105,7 +1120,11 @@ impl Smbc {
         }
     }
 
-    /// Auth wrapper
+    ///
+    /// An external C function used by new_with_auth in order to provide
+    /// user authentication for the Smbc context.
+    /// This authentication function includes a context parameter
+    ///
     extern "C" fn auth_wrapper(
         _ctx: *mut SMBCCTX,
         srv: *const c_char,
@@ -1140,7 +1159,7 @@ impl Smbc {
                 },
                 match data.get(2) {
                     Some(e) => e.to_string(),
-                    None => "".to_string(),
+                    None => "\n".to_string(),
                 },
             );
             let (wg_ptr, un_ptr, pw_ptr) = (
@@ -1156,6 +1175,12 @@ impl Smbc {
             strncpy(pw, pw_ptr.as_ptr(), pwlen);
         }
     }
+
+    /// Auth wrapper
+    ///
+    /// An external C function used by new_with_auth in order to provide
+    /// user authentication for the Smbc context
+    ///
     extern "C" fn set_data_wrapper(
         srv: *const c_char,
         shr: *const c_char,
