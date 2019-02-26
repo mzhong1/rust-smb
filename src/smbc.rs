@@ -318,7 +318,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 /// File Type
 pub enum SmbcType {
     WORKGROUP = 1,
@@ -547,7 +547,7 @@ impl fmt::Display for SmbcAclValue {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// The type of an ACE can be either Allowed or Denied to allow/deny access to the SID
 pub enum AceAtype {
     /// Allow access to the SID
@@ -770,7 +770,7 @@ impl fmt::Display for ACE {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 /// PLEASE Note that INode and Size values are ignored in setxattr calls
 /// INode and Size are used PURELY for parsing .* calls (Since there is
 /// no point in using them to change xattr values)
