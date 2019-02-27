@@ -17,11 +17,7 @@
 // along with smbc. If not, see <http://www.gnu.org/licenses/>.
 
 //use failure::{Fail as F};
-use std::error;
-use std::ffi;
-use std::fmt;
-use std::io;
-use std::result;
+use std::{error, ffi, fmt, io, result};
 
 pub type Result<T> = result::Result<T, Error>;
 

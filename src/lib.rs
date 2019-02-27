@@ -23,7 +23,6 @@
 //! Primary entrypoint is [`Smbc`](struct.Smbc.html) struct.
 //!
 //! Files are represented by [`SmbcFile`](struct.SmbcFile.html).
-//!
 
 #[macro_use]
 mod util;
@@ -35,7 +34,6 @@ pub mod parser;
 /// Main API module (reexported later)
 pub mod smbc;
 
-pub use crate::result::*;
-pub use crate::smbc::*;
+pub use crate::{result::*, smbc::*};
 
 pub use crate::parser::*;
