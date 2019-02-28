@@ -1159,7 +1159,7 @@ impl Smbc {
     ///                   - ENOENT  A directory component in pathname does
     ///                   not exist.
     ///                   - ENODEV The requested share does not exist.
-    pub fn create(&mut self, path: &Path, mode: Mode) -> Result<SmbcFile> {
+    pub fn create(&self, path: &Path, mode: Mode) -> Result<SmbcFile> {
         let path = CString::new(path.as_os_str().as_bytes())?;
         trace!(target: "smbc", "Attempting to retrieve context");
         let ptr = match self.context.lock() {
@@ -2010,7 +2010,7 @@ impl SmbcDirectory {
     ///                  error occurs or end-of-directory is reached:
     ///                  - EBADF Invalid directory handle
     ///                  - EINVAL smbc_init() failed or has not been called
-    pub fn readdir(&mut self) -> io::Result<SmbcDirEntry> {
+    pub fn readdir(&self) -> io::Result<SmbcDirEntry> {
         let ptr = match self.smbc.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -2089,7 +2089,7 @@ impl SmbcDirectory {
     ///                 - EBADF dh is not a valid directory handle
     ///                 - EINVAL smbc_init() failed or has not been called
     ///                 - ENOTDIR if dh is not a directory
-    pub fn telldir(&mut self) -> Result<off_t> {
+    pub fn telldir(&self) -> Result<off_t> {
         let ptr = match self.smbc.lock() {
             Ok(p) => p,
             Err(e) => {
