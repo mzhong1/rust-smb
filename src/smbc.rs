@@ -639,8 +639,8 @@ impl ACE {
 
     pub fn acetype(&self) -> Result<AceAtype> {
         match self {
-            ACE::Numeric(SidType::Numeric(_), atype, ..) => Ok(atype.clone()),
-            ACE::Named(SidType::Named(_), atype, ..) => Ok(atype.clone()),
+            ACE::Numeric(SidType::Numeric(_), atype, ..) => Ok(*atype),
+            ACE::Named(SidType::Named(_), atype, ..) => Ok(*atype),
             _ => Err(SmbcError::SmbcXAttrError("Mismatched ACE and SidType!".to_string())),
         }
     }
