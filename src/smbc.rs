@@ -1,8 +1,8 @@
-//! `smbc` is wrapper library around `libsmbclient` from Samba project.
+//! `smbc` wraps the `libsmbclient` from Samba
 
 use std::{ffi::{CStr, CString},
           fmt,
-          io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write},
+          io::{self, Error, ErrorKind, Read, Result as IoResult, Seek, SeekFrom, Write},
           mem::zeroed,
           os::{raw::c_void, unix::ffi::OsStrExt},
           panic,
@@ -10,8 +10,8 @@ use std::{ffi::{CStr, CString},
           ptr,
           sync::{Arc, Mutex}};
 
-use crate::{parser::*,
-            result::{SmbcError, SmbcResult}};
+use crate::{error::{SmbcError, SmbcResult},
+            parser::*};
 use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, strncpy, EINVAL};
 use nix::{fcntl::OFlag, sys::stat::Mode};
@@ -37,7 +37,7 @@ macro_rules! get_fnptr {
     };
 }
 
-fn check_mut_ptr<T>(ptr: *mut T) -> io::Result<*mut T> {
+fn check_mut_ptr<T>(ptr: *mut T) -> IoResult<*mut T> {
     if ptr.is_null() {
         Err(Error::last_os_error())
     } else {
@@ -45,7 +45,7 @@ fn check_mut_ptr<T>(ptr: *mut T) -> io::Result<*mut T> {
     }
 }
 
-fn check_neg_result<T: Eq + From<i8>>(t: T) -> io::Result<T> {
+fn check_neg_result<T: Eq + From<i8>>(t: T) -> IoResult<T> {
     if t == T::from(-1) {
         Err(Error::last_os_error())
     } else {
@@ -53,7 +53,7 @@ fn check_neg_result<T: Eq + From<i8>>(t: T) -> io::Result<T> {
     }
 }
 
-fn is_einval<T: Eq + From<i8>>(t: T) -> io::Result<T> {
+fn is_einval<T: Eq + From<i8>>(t: T) -> IoResult<T> {
     if t == T::from(-1) {
         Err(Error::from_raw_os_error(EINVAL as i32))
     } else {
@@ -318,7 +318,7 @@ pub enum SmbcType {
 }
 
 impl SmbcType {
-    fn from(t: u32) -> io::Result<SmbcType> {
+    fn from(t: u32) -> IoResult<SmbcType> {
         match t {
             1 => Ok(SmbcType::WORKGROUP),
             2 => Ok(SmbcType::SERVER),
@@ -917,7 +917,7 @@ pub struct SmbcFile {
     /// the samba context
     smbc: Arc<Mutex<SmbcPtr>>,
     /// handle to the file
-    fd: *mut SMBCFILE,
+    handle: *mut SMBCFILE,
     pub fstat_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, file: *mut SMBCFILE, st: *mut stat) -> c_int),
     pub ftruncate_fn:
@@ -938,7 +938,7 @@ pub struct SmbcFile {
 
 impl Drop for SmbcFile {
     fn drop(&mut self) {
-        if !self.fd.is_null() {
+        if !self.handle.is_null() {
             let ptr = match self.smbc.lock() {
                 Ok(p) => p,
                 Err(e) => {
@@ -948,7 +948,7 @@ impl Drop for SmbcFile {
             };
 
             unsafe {
-                smbc_getFunctionClose(ptr.0).map(|f| f(ptr.0, self.fd));
+                smbc_getFunctionClose(ptr.0).map(|f| f(ptr.0, self.handle));
             }
         }
     }
@@ -1182,13 +1182,14 @@ impl Smbc {
         trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
 
         unsafe {
-            let fd = check_mut_ptr((self.creat_fn)(ptr.0, path.as_ptr(), mode.bits() as mode_t))?;
-            trace!(target: "smbc", "Returned value is {:?}", fd);
-            if (fd as i64) < 0 {
-                trace!(target: "smbc", "Error: neg fd");
+            let handle =
+                check_mut_ptr((self.creat_fn)(ptr.0, path.as_ptr(), mode.bits() as mode_t))?;
+            trace!(target: "smbc", "Returned value is {:?}", handle);
+            if (handle as i64) < 0 {
+                trace!(target: "smbc", "Error: neg handle");
             }
             Ok(SmbcFile { smbc: Arc::clone(&self.context),
-                          fd,
+                          handle,
                           fstat_fn: self.fstat_fn,
                           ftruncate_fn: self.ftruncate_fn,
                           lseek_fn: self.lseek_fn,
@@ -1303,14 +1304,14 @@ impl Smbc {
         };
 
         trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
-        let fd = check_mut_ptr(unsafe {
+        let handle = check_mut_ptr(unsafe {
             (self.open_fn)(ptr.0, path.as_ptr(), flags.bits(), mode.bits())
         })?;
-        if (fd as i64) < 0 {
-            trace!(target: "smbc", "neg fd");
+        if (handle as i64) < 0 {
+            trace!(target: "smbc", "neg handle");
         }
         Ok(SmbcFile { smbc: Arc::clone(&self.context),
-                      fd,
+                      handle,
                       fstat_fn: self.fstat_fn,
                       ftruncate_fn: self.ftruncate_fn,
                       lseek_fn: self.lseek_fn,
@@ -1346,7 +1347,7 @@ impl Smbc {
         trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
         let handle = check_mut_ptr(unsafe { (self.opendir_fn)(ptr.0, path.as_ptr()) })?;
         if (handle as i64) < 0 {
-            trace!(target: "smbc", "Error: neg directory fd");
+            trace!(target: "smbc", "Error: neg directory handle");
         }
         Ok(SmbcDirectory { smbc: Arc::clone(&self.context),
                            handle,
@@ -1373,7 +1374,7 @@ impl Smbc {
         let handle =
             check_neg_result(unsafe { (self.mkdir_fn)(ptr.0, path.as_ptr(), mode.bits()) })?;
         if i64::from(handle) < 0 {
-            trace!(target: "smbc", "Error: neg directory fd");
+            trace!(target: "smbc", "Error: neg directory handle");
         }
         Ok(())
     }
@@ -1792,10 +1793,10 @@ impl SmbcFile {
     ///
     /// @return          Vec of read bytes;
     ///                  ERROR:
-    ///                  - EISDIR fd refers to a directory
-    ///                  - EBADF  fd  is  not  a valid file descriptor or
+    ///                  - EISDIR handle refers to a directory
+    ///                  - EBADF  handle  is  not  a valid file descriptor or
     ///                    is not open for reading.
-    ///                  - EINVAL fd is attached to an object which is
+    ///                  - EINVAL handle is attached to an object which is
     ///                    unsuitable for reading, or no buffer passed or
     ///     		       smbc_init not called.
     ///
@@ -1814,7 +1815,7 @@ impl SmbcFile {
             }
         };
         let bytes_read = check_neg_result(unsafe {
-            (self.read_fn)(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, count as usize)
+            (self.read_fn)(ptr.0, self.handle, buf.as_mut_ptr() as *mut _, count as usize)
         })?;
         if (bytes_read as i64) < 0 {
             trace!(target: "smbc", "read failed");
@@ -1828,10 +1829,10 @@ impl SmbcFile {
     /// Write to a file using an opened file handle.
     /// @param buf       Pointer to buffer to recieve read data
     /// @return          Number of bytes written, < 0 on error with errno set:
-    ///                  - EISDIR fd refers to a directory.
-    ///                  - EBADF  fd  is  not  a valid file descriptor or
+    ///                  - EISDIR handle refers to a directory.
+    ///                  - EBADF  handle  is  not  a valid file descriptor or
     ///                  is not open for reading.
-    ///                  - EINVAL fd is attached to an object which is
+    ///                  - EINVAL handle is attached to an object which is
     ///                  unsuitable for reading, or no buffer passed or
     ///     		     smbc_init not called.
     ///
@@ -1845,7 +1846,7 @@ impl SmbcFile {
             }
         };
         let bytes_wrote = check_neg_result(unsafe {
-            (self.write_fn)(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
+            (self.write_fn)(ptr.0, self.handle, buf.as_ptr() as *const _, buf.len() as _)
         })?;
         if (bytes_wrote as i64) < 0 {
             trace!(target: "smbc", "write failed");
@@ -1880,7 +1881,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let res = is_einval(unsafe { (self.lseek_fn)(ptr.0, self.fd, offset, whence) })?;
+        let res = is_einval(unsafe { (self.lseek_fn)(ptr.0, self.handle, offset, whence) })?;
         Ok(res as off_t)
     }
 
@@ -1899,7 +1900,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let res = check_neg_result(unsafe { (self.fstat_fn)(ptr.0, self.fd, &mut stat_buf) })?;
+        let res = check_neg_result(unsafe { (self.fstat_fn)(ptr.0, self.handle, &mut stat_buf) })?;
         if i64::from(res) < 0 {
             trace!(target: "smbc", "fstat failed");
         }
@@ -1914,7 +1915,7 @@ impl SmbcFile {
     ///                  Error:
     ///                  - EBADF  filedes is bad.
     ///                  - EACCES Permission denied.
-    ///                  - EBADF fd is not a valid file descriptor
+    ///                  - EBADF handle is not a valid file descriptor
     ///                  - EINVAL Problems occurred in the underlying routines
     /// 		           or smbc_init not called.
     ///                  - ENOMEM Out of memory
@@ -1926,7 +1927,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        check_neg_result(unsafe { (self.ftruncate_fn)(ptr.0, self.fd, size as off_t) })?;
+        check_neg_result(unsafe { (self.ftruncate_fn)(ptr.0, self.handle, size as off_t) })?;
         Ok(())
     }
 }
@@ -1934,8 +1935,8 @@ impl SmbcFile {
 /// Read trait for SmbcFile
 /// pretty much does the same thing as fread above
 impl Read for SmbcFile {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        trace!(target: "smbc", "reading file to buf [{:?};{}]", buf.as_ptr(), buf.len());
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+        trace!(target: "smbc", "reading file to buf");
         let ptr = match self.smbc.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1944,7 +1945,7 @@ impl Read for SmbcFile {
             }
         };
         Ok(check_neg_result(unsafe {
-            (self.read_fn)(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, buf.len() as _)
+            (self.read_fn)(ptr.0, self.handle, buf.as_mut_ptr() as *mut _, buf.len() as _)
         })? as usize)
     }
 }
@@ -1952,8 +1953,8 @@ impl Read for SmbcFile {
 /// Write trait for smbcFile
 /// Does the same thing as fwrite above
 impl Write for SmbcFile {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        trace!(target: "smbc", "writing buf [{:?};{}] to file", buf.as_ptr(), buf.len());
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        trace!(target: "smbc", "writing buf to file");
         let ptr = match self.smbc.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1961,14 +1962,13 @@ impl Write for SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let bytes_wrote = check_neg_result(unsafe {
-            (self.write_fn)(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
-        })?;
-        Ok(bytes_wrote as usize)
+        Ok(check_neg_result(unsafe {
+            (self.write_fn)(ptr.0, self.handle, buf.as_ptr() as *const _, buf.len() as _)
+        })? as usize)
     }
 
-    /// Do nothing for SmbFile
-    fn flush(&mut self) -> io::Result<()> {
+    /// do nothing...
+    fn flush(&mut self) -> IoResult<()> {
         Ok(())
     }
 }
@@ -1976,8 +1976,8 @@ impl Write for SmbcFile {
 /// Seek trait for SmbcFile if needed
 /// You can just call lseek though...
 impl Seek for SmbcFile {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        trace!(target: "smbc", "seeking file {:?}", pos);
+    fn seek(&mut self, pos: SeekFrom) -> IoResult<u64> {
+        trace!(target: "smbc", "seek file to {:?}", pos);
         let ptr = match self.smbc.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -1990,8 +1990,8 @@ impl Seek for SmbcFile {
             SeekFrom::End(p) => (SEEK_END, p as off_t),
             SeekFrom::Current(p) => (SEEK_CUR, p as off_t),
         };
-        let res = is_einval(unsafe { (self.lseek_fn)(ptr.0, self.fd, off, whence as i32) })?;
-        Ok(res as u64)
+        let ret = is_einval(unsafe { (self.lseek_fn)(ptr.0, self.handle, off, whence as i32) })?;
+        Ok(ret as u64)
     }
 }
 
@@ -2010,7 +2010,7 @@ impl SmbcDirectory {
     ///                  error occurs or end-of-directory is reached:
     ///                  - EBADF Invalid directory handle
     ///                  - EINVAL smbc_init() failed or has not been called
-    pub fn readdir(&self) -> io::Result<SmbcDirEntry> {
+    pub fn readdir(&self) -> IoResult<SmbcDirEntry> {
         let ptr = match self.smbc.lock() {
             Ok(p) => p,
             Err(e) => {
@@ -2049,7 +2049,7 @@ impl SmbcDirectory {
     /// lseek on directories.
     ///
     /// smbc_lseekdir() may be used in conjunction with smbc_readdir() and
-    /// smbc_telldir(). (rewind by smbc_lseekdir(fd, NULL))
+    /// smbc_telldir(). (rewind by smbc_lseekdir(handle, NULL))
     ///
     /// @param offset    The offset (as returned by smbc_telldir). Can be
     ///                  NULL, in which case we will rewind
@@ -2104,7 +2104,7 @@ impl SmbcDirectory {
 /// to loop through all files/subdirectories
 /// (Or you can just call readdir over an over)
 impl Iterator for SmbcDirectory {
-    type Item = io::Result<SmbcDirEntry>;
+    type Item = IoResult<SmbcDirEntry>;
 
     fn next(&mut self) -> Option<Self::Item> {
         trace!(target: "smbc", "Attempting to retrieve readdir function");
@@ -2161,7 +2161,7 @@ impl Iterator for SmbcDirectory {
 /// Granted, you COULD just use lseek and telldir, but
 /// in case you need to have the trait...
 impl Seek for SmbcDirectory {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+    fn seek(&mut self, pos: SeekFrom) -> IoResult<u64> {
         trace!(target: "smbc", "seeking file {:?}", pos);
         let ptr = match self.smbc.lock() {
             Ok(p) => p,
