@@ -45,20 +45,24 @@ fn check_mut_ptr<T>(ptr: *mut T) -> io::Result<*mut T> {
     }
 }
 
-fn check_neg_result<T: Eq + From<i8>>(t: T) -> io::Result<T> {
-    if t == T::from(-1) {
-        Err(Error::last_os_error())
-    } else {
-        Ok(t)
-    }
+macro_rules! check_result {
+    ($e:expr) => {
+        if $e == -1 {
+            Err(Error::last_os_error())
+        } else {
+            Ok($e)
+        }
+    };
 }
 
-fn is_einval<T: Eq + From<i8>>(t: T) -> io::Result<T> {
-    if t == T::from(-1) {
-        Err(Error::from_raw_os_error(EINVAL as i32))
-    } else {
-        Ok(t)
-    }
+macro_rules! check_einval {
+    ($e:expr) => {
+        if $e == -1 {
+            Err(Error::from_raw_os_error(EINVAL as i32))
+        } else {
+            Ok($e)
+        }
+    };
 }
 
 #[derive(Clone)]
@@ -1232,7 +1236,7 @@ impl Smbc {
         };
         trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
 
-        check_neg_result(unsafe { (self.chmod_fn)(ptr.0, path.as_ptr(), mode.bits() as mode_t) })?;
+        check_result!(unsafe { (self.chmod_fn)(ptr.0, path.as_ptr(), mode.bits() as mode_t) })?;
 
         trace!(target: "smbc", "Chmod_fn ran");
         Ok(())
@@ -1370,8 +1374,7 @@ impl Smbc {
             }
         };
         trace!(target: "smbc", "Sucessfully retrieved context, attempting to apply function");
-        let handle =
-            check_neg_result(unsafe { (self.mkdir_fn)(ptr.0, path.as_ptr(), mode.bits()) })?;
+        let handle = check_result!(unsafe { (self.mkdir_fn)(ptr.0, path.as_ptr(), mode.bits()) })?;
         if i64::from(handle) < 0 {
             trace!(target: "smbc", "Error: neg directory fd");
         }
@@ -1423,7 +1426,7 @@ impl Smbc {
             }
         };
         trace!(target: "smbc", "Successfully retrieved context, attempting to apply function");
-        check_neg_result(unsafe {
+        check_result!(unsafe {
             (self.rename_fn)(ptr.0, oldpath.as_ptr(), ptr.0, newpath.as_ptr())
         })?;
         Ok(())
@@ -1454,7 +1457,7 @@ impl Smbc {
             }
         };
         trace!(target: "smbc", "Successfully retrieved context, attempting to apply function");
-        check_neg_result(unsafe { (self.rmdir_fn)(ptr.0, path.as_ptr()) })?;
+        check_result!(unsafe { (self.rmdir_fn)(ptr.0, path.as_ptr()) })?;
         Ok(())
     }
 
@@ -1489,7 +1492,7 @@ impl Smbc {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let res = check_neg_result(unsafe { (self.stat_fn)(ptr.0, path.as_ptr(), &mut stat_buf) })?;
+        let res = check_result!(unsafe { (self.stat_fn)(ptr.0, path.as_ptr(), &mut stat_buf) })?;
         if i64::from(res) < 0 {
             trace!(target: "smbc", "stat failed");
         }
@@ -1522,7 +1525,7 @@ impl Smbc {
             }
         };
 
-        check_neg_result(unsafe { (self.unlink_fn)(ptr.0, path.as_ptr()) })?;
+        check_result!(unsafe { (self.unlink_fn)(ptr.0, path.as_ptr()) })?;
 
         Ok(())
     }
@@ -1549,7 +1552,7 @@ impl Smbc {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        check_neg_result(unsafe { (self.utimes_fn)(ptr.0, path.as_ptr(), tbuf.as_mut_ptr()) })?;
+        check_result!(unsafe { (self.utimes_fn)(ptr.0, path.as_ptr(), tbuf.as_mut_ptr()) })?;
 
         Ok(())
     }
@@ -1629,7 +1632,7 @@ impl Smbc {
             }
         };
         // Set your buffer to capacity len here
-        let len = check_neg_result(unsafe {
+        let len = check_result!(unsafe {
             (self.getxattr_fn)(ptr.0, path.as_ptr(), name.as_ptr(), vec![].as_ptr() as *const _, 0)
         })? + 1;
         trace!(target: "smbc", "Sizing buffer to {}", len);
@@ -1637,7 +1640,7 @@ impl Smbc {
         if i64::from(len) < 0 {
             trace!(target: "smbc", "getxattr failed");
         }
-        let res = check_neg_result(unsafe {
+        let res = check_result!(unsafe {
             (self.getxattr_fn)(ptr.0,
                                path.as_ptr(),
                                name.as_ptr(),
@@ -1669,7 +1672,7 @@ impl Smbc {
         };
         // Set your buffer to capacity len here
         let temp: Vec<u8> = vec![];
-        let len = check_neg_result(unsafe {
+        let len = check_result!(unsafe {
             (self.listxattr_fn)(ptr.0, path.as_ptr(), temp.as_ptr() as *mut c_char, 0)
         })?;
         trace!(target: "smbc", "Sizing buffer to {}", len);
@@ -1678,7 +1681,7 @@ impl Smbc {
             trace!(target: "smbc", "listxattr failed");
         }
 
-        let res = check_neg_result(unsafe {
+        let res = check_result!(unsafe {
             (self.listxattr_fn)(ptr.0, path.as_ptr(), value.as_ptr() as *mut c_char, len as _)
         })?;
         if i64::from(res) < 0 {
@@ -1718,7 +1721,7 @@ impl Smbc {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        check_neg_result(unsafe { (self.removexattr_fn)(ptr.0, path.as_ptr(), name.as_ptr()) })?;
+        check_result!(unsafe { (self.removexattr_fn)(ptr.0, path.as_ptr(), name.as_ptr()) })?;
 
         Ok(())
     }
@@ -1780,7 +1783,7 @@ impl Smbc {
         };
         if i64::from(res) < 0 {
             trace!(target: "smbc", "setxattr failed");
-            check_neg_result(res)?;
+            check_result!(res)?;
         }
         Ok(())
     }
@@ -1813,7 +1816,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let bytes_read = check_neg_result(unsafe {
+        let bytes_read = check_result!(unsafe {
             (self.read_fn)(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, count as usize)
         })?;
         if (bytes_read as i64) < 0 {
@@ -1844,7 +1847,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let bytes_wrote = check_neg_result(unsafe {
+        let bytes_wrote = check_result!(unsafe {
             (self.write_fn)(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
         })?;
         if (bytes_wrote as i64) < 0 {
@@ -1880,7 +1883,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let res = is_einval(unsafe { (self.lseek_fn)(ptr.0, self.fd, offset, whence) })?;
+        let res = check_einval!(unsafe { (self.lseek_fn)(ptr.0, self.fd, offset, whence) })?;
         Ok(res as off_t)
     }
 
@@ -1899,7 +1902,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let res = check_neg_result(unsafe { (self.fstat_fn)(ptr.0, self.fd, &mut stat_buf) })?;
+        let res = check_result!(unsafe { (self.fstat_fn)(ptr.0, self.fd, &mut stat_buf) })?;
         if i64::from(res) < 0 {
             trace!(target: "smbc", "fstat failed");
         }
@@ -1926,7 +1929,7 @@ impl SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        check_neg_result(unsafe { (self.ftruncate_fn)(ptr.0, self.fd, size as off_t) })?;
+        check_result!(unsafe { (self.ftruncate_fn)(ptr.0, self.fd, size as off_t) })?;
         Ok(())
     }
 }
@@ -1943,7 +1946,7 @@ impl Read for SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        Ok(check_neg_result(unsafe {
+        Ok(check_result!(unsafe {
             (self.read_fn)(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, buf.len() as _)
         })? as usize)
     }
@@ -1961,7 +1964,7 @@ impl Write for SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let bytes_wrote = check_neg_result(unsafe {
+        let bytes_wrote = check_result!(unsafe {
             (self.write_fn)(ptr.0, self.fd, buf.as_ptr() as *const _, buf.len() as _)
         })?;
         Ok(bytes_wrote as usize)
@@ -1990,7 +1993,7 @@ impl Seek for SmbcFile {
             SeekFrom::End(p) => (SEEK_END, p as off_t),
             SeekFrom::Current(p) => (SEEK_CUR, p as off_t),
         };
-        let res = is_einval(unsafe { (self.lseek_fn)(ptr.0, self.fd, off, whence as i32) })?;
+        let res = check_einval!(unsafe { (self.lseek_fn)(ptr.0, self.fd, off, whence as i32) })?;
         Ok(res as u64)
     }
 }
@@ -2068,7 +2071,8 @@ impl SmbcDirectory {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let res = is_einval(unsafe { (self.lseekdir_fn)(ptr.0, self.handle, offset as off_t) })?;
+        let res =
+            check_einval!(unsafe { (self.lseekdir_fn)(ptr.0, self.handle, offset as off_t) })?;
         if i64::from(res) < 0 {
             trace!(target: "smbc", "lseekdir failed");
         }
@@ -2094,7 +2098,7 @@ impl SmbcDirectory {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let res = is_einval(unsafe { (self.telldir_fn)(ptr.0, self.handle) })?;
+        let res = check_einval!(unsafe { (self.telldir_fn)(ptr.0, self.handle) })?;
         Ok(res as off_t)
     }
 }
@@ -2175,7 +2179,7 @@ impl Seek for SmbcDirectory {
             SeekFrom::End(p) => (SEEK_END, p as off_t),
             SeekFrom::Current(p) => (SEEK_CUR, p as off_t),
         };
-        let res = is_einval(unsafe { (self.lseekdir_fn)(ptr.0, self.handle, off as off_t) })?;
+        let res = check_einval!(unsafe { (self.lseekdir_fn)(ptr.0, self.handle, off as off_t) })?;
         Ok(res as u64)
     }
 }
