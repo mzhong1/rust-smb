@@ -2,7 +2,7 @@
 name = "smbc"
 version = "0.1.0"
 keywords = ["smbclient", "samba", "cifs"]
-description = "type-safe libsmbclient wrapper with std::fs-like interface"
+description = "type-safe libsmbclient wrapper"
 edition = "2018"
 
 [dependencies]
