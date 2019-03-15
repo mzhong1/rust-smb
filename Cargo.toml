@@ -1,13 +1,8 @@
 [package]
 name = "smbc"
 version = "0.1.0"
-authors = ["Konstantin Gribov <grossws@gmail.com>"]
-
-repository = "https://github.com/smbc-rs/smbc"
-documentation = "https://docs.rs/smbc"
-license = "GPL-3.0+"
 keywords = ["smbclient", "samba", "cifs"]
-description = "type-safe libsmbclient wrapper with std::fs-like interface"
+description = "type-safe libsmbclient wrapper"
 edition = "2018"
 
 [dependencies]
@@ -19,3 +14,5 @@ nix = "0.11"
 chrono = "0.4.6"
 nom = "4.1.1"
 percent-encoding = "1.0.1"
+lazy_static = "1.2.0"
+derive-error = "0.0.4"
