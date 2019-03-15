@@ -31,6 +31,12 @@ lazy_static! {
         Arc::new(Mutex::new(vec!["WORKGROUP".to_string(), "guest".to_string(), "".to_string()]));
 }
 
+macro_rules! get_fnptr {
+    ($e:expr) => {
+        $e.ok_or_else(|| Error::from_raw_os_error(EINVAL as i32))
+    };
+}
+
 fn check_mut_ptr<T>(ptr: *mut T) -> io::Result<*mut T> {
     if ptr.is_null() {
         Err(Error::last_os_error())
@@ -63,7 +69,6 @@ unsafe impl Sync for SmbcPtr {}
 impl Drop for SmbcPtr {
     fn drop(&mut self) {
         if !self.0.is_null() {
-            trace!(target: "smbc", "closing smbcontext");
             unsafe {
                 smbc_free_context(self.0, 1 as c_int);
             }
@@ -150,7 +155,7 @@ pub struct Smbc {
 }
 
 bitflags! {
-    /// Te Attribute Flags needed in a setxattr call
+    /// The Attribute Flags needed in a setxattr call
     pub struct XAttrFlags :i32 {
         /// zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
@@ -1015,79 +1020,34 @@ impl Smbc {
             };
             smbc_set_context(ptr);
             Ok(Smbc { context: Arc::new(Mutex::new(SmbcPtr(ptr))),
-                      chmod_fn:
-                          smbc_getFunctionChmod(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      close_fn:
-                          smbc_getFunctionClose(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      closedir_fn:
-                          smbc_getFunctionClosedir(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                       as i32))?,
-                      creat_fn:
-                          smbc_getFunctionCreat(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      fstat_fn:
-                          smbc_getFunctionFstat(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      fstatvfs_fn:
-                          smbc_getFunctionFstatVFS(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                       as i32))?,
-                      fstatdir_fn:
-                          smbc_getFunctionFstatdir(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                       as i32))?,
-                      ftruncate_fn:
-                          smbc_getFunctionFtruncate(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                        as i32))?,
-                      getdents_fn:
-                          smbc_getFunctionGetdents(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                       as i32))?,
-                      getxattr_fn:
-                          smbc_getFunctionGetxattr(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                       as i32))?,
-                      listxattr_fn:
-                          smbc_getFunctionListxattr(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                        as i32))?,
-                      lseek_fn:
-                          smbc_getFunctionLseek(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      lseekdir_fn:
-                          smbc_getFunctionLseekdir(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                       as i32))?,
-                      mkdir_fn:
-                          smbc_getFunctionMkdir(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      open_fn:
-                          smbc_getFunctionOpen(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      opendir_fn:
-                          smbc_getFunctionOpendir(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                      as i32))?,
-                      read_fn:
-                          smbc_getFunctionRead(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      readdir_fn:
-                          smbc_getFunctionReaddir(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                      as i32))?,
-                      removexattr_fn:
-                          smbc_getFunctionRemovexattr(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                          as i32))?,
-                      rename_fn:
-                          smbc_getFunctionRename(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                     as i32))?,
-                      rmdir_fn:
-                          smbc_getFunctionRmdir(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      setxattr_fn:
-                          smbc_getFunctionSetxattr(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                       as i32))?,
-                      stat_fn:
-                          smbc_getFunctionStat(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))?,
-                      statvfs_fn:
-                          smbc_getFunctionStatVFS(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                      as i32))?,
-                      telldir_fn:
-                          smbc_getFunctionTelldir(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                      as i32))?,
-                      unlink_fn:
-                          smbc_getFunctionUnlink(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                     as i32))?,
-                      utimes_fn:
-                          smbc_getFunctionUtimes(ptr).ok_or(Error::from_raw_os_error(EINVAL
-                                                                                     as i32))?,
-                      write_fn:
-                          smbc_getFunctionWrite(ptr).ok_or(Error::from_raw_os_error(EINVAL as i32))? })
+                      chmod_fn: get_fnptr!(smbc_getFunctionChmod(ptr))?,
+                      close_fn: get_fnptr!(smbc_getFunctionClose(ptr))?,
+                      closedir_fn: get_fnptr!(smbc_getFunctionClosedir(ptr))?,
+                      creat_fn: get_fnptr!(smbc_getFunctionCreat(ptr))?,
+                      fstat_fn: get_fnptr!(smbc_getFunctionFstat(ptr))?,
+                      fstatvfs_fn: get_fnptr!(smbc_getFunctionFstatVFS(ptr))?,
+                      fstatdir_fn: get_fnptr!(smbc_getFunctionFstatdir(ptr))?,
+                      ftruncate_fn: get_fnptr!(smbc_getFunctionFtruncate(ptr))?,
+                      getdents_fn: get_fnptr!(smbc_getFunctionGetdents(ptr))?,
+                      getxattr_fn: get_fnptr!(smbc_getFunctionGetxattr(ptr))?,
+                      listxattr_fn: get_fnptr!(smbc_getFunctionListxattr(ptr))?,
+                      lseek_fn: get_fnptr!(smbc_getFunctionLseek(ptr))?,
+                      lseekdir_fn: get_fnptr!(smbc_getFunctionLseekdir(ptr))?,
+                      mkdir_fn: get_fnptr!(smbc_getFunctionMkdir(ptr))?,
+                      open_fn: get_fnptr!(smbc_getFunctionOpen(ptr))?,
+                      opendir_fn: get_fnptr!(smbc_getFunctionOpendir(ptr))?,
+                      read_fn: get_fnptr!(smbc_getFunctionRead(ptr))?,
+                      readdir_fn: get_fnptr!(smbc_getFunctionReaddir(ptr))?,
+                      removexattr_fn: get_fnptr!(smbc_getFunctionRemovexattr(ptr))?,
+                      rename_fn: get_fnptr!(smbc_getFunctionRename(ptr))?,
+                      rmdir_fn: get_fnptr!(smbc_getFunctionRmdir(ptr))?,
+                      setxattr_fn: get_fnptr!(smbc_getFunctionSetxattr(ptr))?,
+                      stat_fn: get_fnptr!(smbc_getFunctionStat(ptr))?,
+                      statvfs_fn: get_fnptr!(smbc_getFunctionStatVFS(ptr))?,
+                      telldir_fn: get_fnptr!(smbc_getFunctionTelldir(ptr))?,
+                      unlink_fn: get_fnptr!(smbc_getFunctionUnlink(ptr))?,
+                      utimes_fn: get_fnptr!(smbc_getFunctionUtimes(ptr))?,
+                      write_fn: get_fnptr!(smbc_getFunctionWrite(ptr))? })
         }
     }
 
@@ -1131,7 +1091,7 @@ impl Smbc {
                 (CString::from_vec_unchecked(workgroup.clone().into_bytes()),
                  CString::from_vec_unchecked(username.clone().into_bytes()),
                  CString::from_vec_unchecked(password.clone().into_bytes()));
-            trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
+            trace!(target: "smbc", "credentials: {:?}\\{:?} {:?}", &workgroup, &username, &password);
             let (wglen, unlen, pwlen) = (workgroup.len(), username.len(), password.len());
 
             strncpy(wg, wg_ptr.as_ptr(), wglen);
@@ -1983,10 +1943,9 @@ impl Read for SmbcFile {
                 panic!("POISONED MUTEX {:?}!!!!", e)
             }
         };
-        let bytes_read = check_neg_result(unsafe {
+        Ok(check_neg_result(unsafe {
             (self.read_fn)(ptr.0, self.fd, buf.as_mut_ptr() as *mut _, buf.len() as _)
-        })?;
-        Ok(bytes_read as usize)
+        })? as usize)
     }
 }
 
