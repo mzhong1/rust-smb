@@ -1,5 +1,5 @@
 [package]
-name = "rust-smbc"
+name = "rust-smb"
 version = "0.1.0"
 description = "type-safe libsmbclient wrapper"
 authors = ["Michelle Zhong <mzhong215@cable.comcast.com>"]
