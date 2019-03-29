@@ -1,8 +1,10 @@
 [package]
-name = "smbc"
+name = "rust-smbc"
 version = "0.1.0"
-keywords = ["smbclient", "samba", "cifs"]
 description = "type-safe libsmbclient wrapper"
+authors = ["Michelle Zhong <mzhong215@cable.comcast.com>"]
+license = "MIT"
+readme = "README.md"
 edition = "2018"
 
 [dependencies]
