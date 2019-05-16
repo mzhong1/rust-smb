@@ -16,7 +16,7 @@ use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, strncpy, EINVAL};
 use nix::{fcntl::OFlag, sys::stat::Mode};
 use nom::types::CompleteByteSlice;
-use smbclient_sys::*;
+use rust_smbclient_sys::*;
 
 use bitflags::bitflags;
 use lazy_static::*;
