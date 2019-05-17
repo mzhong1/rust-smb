@@ -1,6 +1,7 @@
 //! `smbc` wraps the `libsmbclient` from Samba
 
-use std::{ffi::{CStr, CString},
+use std::{convert::TryInto,
+          ffi::{CStr, CString},
           fmt,
           io::{self, Error, ErrorKind, Read, Result as IoResult, Seek, SeekFrom, Write},
           mem::zeroed,
@@ -58,6 +59,16 @@ fn is_einval<T: Eq + From<i8>>(t: T) -> IoResult<T> {
         Err(Error::from_raw_os_error(EINVAL as i32))
     } else {
         Ok(t)
+    }
+}
+
+/// Converts a pointer to the beginning of a C string and it's length and puts its
+/// equivelant value casted to u8
+fn str_ptr_to_u8(str_len: u32, str_ptr: *const i8, out_buffer: &mut Vec<u8>) {
+    for index in 0..str_len {
+        trace!(target: "smbc", "namelen : {}", str_len);
+        trace!(target: "smbc", "{:?}", unsafe { *str_ptr.offset(index as isize) });
+        out_buffer.push(unsafe { *str_ptr.offset(index as isize) } as u8);
     }
 }
 
@@ -2024,15 +2035,11 @@ impl SmbcDirectory {
             let e = Error::new(ErrorKind::Other, "dirent null");
             return Err(e);
         }
-        let mut buff: Vec<i8> = Vec::new();
         let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
-        for x in 0..len {
-            trace!(target: "smbc", "namelen : {}", len);
-            trace!(target: "smbc", "{:?}", unsafe { *ptr.offset(x as isize) });
-            buff.push(unsafe { *ptr.offset(x as isize) });
-        }
-        let name_buff: Vec<u8> = buff.iter().map(|c| *c as u8).collect();
+        // This should never panic since u32 should always fit within a usize (we're not running below 32 bit)
+        let mut name_buff: Vec<u8> = Vec::with_capacity(len.try_into().unwrap());
+        str_ptr_to_u8(len, ptr, &mut name_buff);
         trace!(target: "smbc", "Cursor name {:?}", name_buff);
         let filename = String::from_utf8_lossy(&name_buff);
         trace!(target: "smbc", "Filename: {:?}", filename);
@@ -2129,16 +2136,11 @@ impl Iterator for SmbcDirectory {
             // Null means we're done
             return None;
         }
-        let mut buff: Vec<i8> = Vec::new();
         let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
-        for x in 0..len {
-            trace!(target: "smbc", "namelen : {}", len);
-            trace!(target: "smbc", "{:?}", unsafe { *ptr.offset(x as isize) });
-            buff.push(unsafe { *ptr.offset(x as isize) });
-        }
-
-        let name_buff: Vec<u8> = buff.iter().map(|c| *c as u8).collect();
+        // This should never panic since u32 should always fit within a usize (we're not running below 32 bit)
+        let mut name_buff: Vec<u8> = Vec::with_capacity(len.try_into().unwrap());
+        str_ptr_to_u8(len, ptr, &mut name_buff);
         trace!(target: "smbc", "Cursor name {:?}", name_buff);
 
         let filename = percent_decode(&name_buff).decode_utf8_lossy();
