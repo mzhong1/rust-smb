@@ -980,9 +980,9 @@ impl Smbc {
     ///
     /// @return         return a new Smbc context with user authentication
     ///                 set by set_data (or default). Error should it fail.
-    pub fn new_with_auth(level: u32) -> SmbcResult<Smbc> {
+    pub fn new_with_auth(level: i32) -> SmbcResult<Smbc> {
         unsafe {
-            smbc_init(Some(Self::set_data_wrapper), level as i32);
+            smbc_init(Some(Self::set_data_wrapper), level);
             let ctx = check_mut_ptr(smbc_new_context())?;
             smbc_setOptionDebugToStderr(ctx, 1);
             smbc_setOptionUserData(ctx, Self::auth_wrapper as *mut c_void);
@@ -1009,7 +1009,7 @@ impl Smbc {
                                                wg.as_ptr() as *const c_char,
                                                un.as_ptr() as *const c_char,
                                                pw.as_ptr() as *const c_char);
-            smbc_setDebug(ctx, level as i32);
+            smbc_setDebug(ctx, level);
             let ptr: *mut SMBCCTX = match check_mut_ptr(smbc_init_context(ctx)) {
                 Ok(p) => p,
                 Err(e) => {
