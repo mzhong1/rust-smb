@@ -1,6 +1,7 @@
 //! `smbc` wraps the `libsmbclient` from Samba
 
-use std::{ffi::{CStr, CString},
+use std::{convert::TryInto,
+          ffi::{CStr, CString},
           fmt,
           io::{self, Error, ErrorKind, Read, Result as IoResult, Seek, SeekFrom, Write},
           mem::zeroed,
@@ -16,7 +17,7 @@ use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, strncpy, EINVAL};
 use nix::{fcntl::OFlag, sys::stat::Mode};
 use nom::types::CompleteByteSlice;
-use smbclient_sys::*;
+use rust_smbclient_sys::*;
 
 use bitflags::bitflags;
 use lazy_static::*;
@@ -980,9 +981,9 @@ impl Smbc {
     ///
     /// @return         return a new Smbc context with user authentication
     ///                 set by set_data (or default). Error should it fail.
-    pub fn new_with_auth(level: u32) -> SmbcResult<Smbc> {
+    pub fn new_with_auth(level: i32) -> SmbcResult<Smbc> {
         unsafe {
-            smbc_init(Some(Self::set_data_wrapper), level as i32);
+            smbc_init(Some(Self::set_data_wrapper), level);
             let ctx = check_mut_ptr(smbc_new_context())?;
             smbc_setOptionDebugToStderr(ctx, 1);
             smbc_setOptionUserData(ctx, Self::auth_wrapper as *mut c_void);
@@ -1009,7 +1010,7 @@ impl Smbc {
                                                wg.as_ptr() as *const c_char,
                                                un.as_ptr() as *const c_char,
                                                pw.as_ptr() as *const c_char);
-            smbc_setDebug(ctx, level as i32);
+            smbc_setDebug(ctx, level);
             let ptr: *mut SMBCCTX = match check_mut_ptr(smbc_init_context(ctx)) {
                 Ok(p) => p,
                 Err(e) => {
@@ -2024,17 +2025,8 @@ impl SmbcDirectory {
             let e = Error::new(ErrorKind::Other, "dirent null");
             return Err(e);
         }
-        let mut buff: Vec<i8> = Vec::new();
-        let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
-        for x in 0..len {
-            trace!(target: "smbc", "namelen : {}", len);
-            trace!(target: "smbc", "{:?}", unsafe { *ptr.offset(x as isize) });
-            buff.push(unsafe { *ptr.offset(x as isize) });
-        }
-        let name_buff: Vec<u8> = buff.iter().map(|c| *c as u8).collect();
-        trace!(target: "smbc", "Cursor name {:?}", name_buff);
-        let filename = String::from_utf8_lossy(&name_buff);
+        let filename = (unsafe { CStr::from_ptr(ptr) }).to_string_lossy();
         trace!(target: "smbc", "Filename: {:?}", filename);
         let d_type = match SmbcType::from(unsafe { (*dirent).smbc_type }) {
             Ok(ty) => ty,
@@ -2129,19 +2121,10 @@ impl Iterator for SmbcDirectory {
             // Null means we're done
             return None;
         }
-        let mut buff: Vec<i8> = Vec::new();
-        let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
-        for x in 0..len {
-            trace!(target: "smbc", "namelen : {}", len);
-            trace!(target: "smbc", "{:?}", unsafe { *ptr.offset(x as isize) });
-            buff.push(unsafe { *ptr.offset(x as isize) });
-        }
+        let name = (unsafe { CStr::from_ptr(ptr) }).to_string_lossy().into_owned();
 
-        let name_buff: Vec<u8> = buff.iter().map(|c| *c as u8).collect();
-        trace!(target: "smbc", "Cursor name {:?}", name_buff);
-
-        let filename = percent_decode(&name_buff).decode_utf8_lossy();
+        let filename = percent_decode(&name.as_bytes()).decode_utf8_lossy();
         trace!(target: "smbc", "Filename: {:?}", filename);
 
         let s_type = match unsafe { SmbcType::from((*dirent).smbc_type) } {
