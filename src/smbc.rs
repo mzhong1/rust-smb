@@ -62,16 +62,6 @@ fn is_einval<T: Eq + From<i8>>(t: T) -> IoResult<T> {
     }
 }
 
-/// Converts a pointer to the beginning of a C string and it's length and puts its
-/// equivelant value casted to u8
-fn str_ptr_to_u8(str_len: u32, str_ptr: *const i8, out_buffer: &mut Vec<u8>) {
-    for index in 0..str_len {
-        trace!(target: "smbc", "namelen : {}", str_len);
-        trace!(target: "smbc", "{:?}", unsafe { *str_ptr.offset(index as isize) });
-        out_buffer.push(unsafe { *str_ptr.offset(index as isize) } as u8);
-    }
-}
-
 #[derive(Clone)]
 /// a pointer to hold the smbc context
 struct SmbcPtr(*mut SMBCCTX);
@@ -2035,13 +2025,8 @@ impl SmbcDirectory {
             let e = Error::new(ErrorKind::Other, "dirent null");
             return Err(e);
         }
-        let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
-        // This should never panic since u32 should always fit within a usize (we're not running below 32 bit)
-        let mut name_buff: Vec<u8> = Vec::with_capacity(len.try_into().unwrap());
-        str_ptr_to_u8(len, ptr, &mut name_buff);
-        trace!(target: "smbc", "Cursor name {:?}", name_buff);
-        let filename = String::from_utf8_lossy(&name_buff);
+        let filename = (unsafe { CStr::from_ptr(ptr) }).to_string_lossy();
         trace!(target: "smbc", "Filename: {:?}", filename);
         let d_type = match SmbcType::from(unsafe { (*dirent).smbc_type }) {
             Ok(ty) => ty,
@@ -2136,14 +2121,10 @@ impl Iterator for SmbcDirectory {
             // Null means we're done
             return None;
         }
-        let len = unsafe { (*dirent).namelen };
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
-        // This should never panic since u32 should always fit within a usize (we're not running below 32 bit)
-        let mut name_buff: Vec<u8> = Vec::with_capacity(len.try_into().unwrap());
-        str_ptr_to_u8(len, ptr, &mut name_buff);
-        trace!(target: "smbc", "Cursor name {:?}", name_buff);
+        let name = (unsafe { CStr::from_ptr(ptr) }).to_string_lossy().into_owned();
 
-        let filename = percent_decode(&name_buff).decode_utf8_lossy();
+        let filename = percent_decode(&name.as_bytes()).decode_utf8_lossy();
         trace!(target: "smbc", "Filename: {:?}", filename);
 
         let s_type = match unsafe { SmbcType::from((*dirent).smbc_type) } {
