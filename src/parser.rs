@@ -587,74 +587,106 @@ fn test_xattr_parser() {
 }
 
 /// Parse a decimal number
-named!(dec_num(CompleteByteSlice<'_>) -> u64,
-       do_parse!(n: take_while1!(is_digit)
-                 >> ({
-                     let s = String::from_utf8_lossy(n.as_bytes());
-                     u64::from_str_radix(&s, 10).unwrap()
-                 })));
+named!(
+    dec_num(CompleteByteSlice<'_>) -> u64,
+    do_parse!(
+        n: take_while1!(is_digit)
+            >> ({
+                let s = String::from_utf8_lossy(n.as_bytes());
+                u64::from_str_radix(&s, 10).unwrap()
+            })
+    )
+);
 
 /// Parse a signed decimal number
-named!(sdec_num(CompleteByteSlice<'_>) -> i64,
-       do_parse!(sign: opt!(tag!("-"))
-                 >> n: take_while1!(is_digit)
-                 >> ({
-                     let s = String::from_utf8_lossy(n.as_bytes());
-                     let i = i64::from_str_radix(&s, 10).unwrap();
-                     match sign {
-                         Some(_) => -i,
-                         None => i,
-                     }
-                 })));
+named!(
+    sdec_num(CompleteByteSlice<'_>) -> i64,
+    do_parse!(
+        sign: opt!(tag!("-"))
+            >> n: take_while1!(is_digit)
+            >> ({
+                let s = String::from_utf8_lossy(n.as_bytes());
+                let i = i64::from_str_radix(&s, 10).unwrap();
+                match sign {
+                    Some(_) => -i,
+                    None => i,
+                }
+            })
+    )
+);
 
 /// Parse a Hex number
-named!(hex_num(CompleteByteSlice<'_>) -> i32,
-       do_parse!(n: alt!(take_while1!(is_hex_digit) | take_while!(is_digit))
-                 >> ({
-                     let s = String::from_utf8_lossy(n.as_bytes());
-                     i32::from_str_radix(&s, 16).unwrap()
-                 })));
+named!(
+    hex_num(CompleteByteSlice<'_>) -> i32,
+    do_parse!(
+        n: alt!(take_while1!(is_hex_digit) | take_while!(is_digit))
+            >> ({
+                let s = String::from_utf8_lossy(n.as_bytes());
+                i32::from_str_radix(&s, 16).unwrap()
+            })
+    )
+);
 
 /// Parse an XAttrMask
-named!(xattrmask_parse(CompleteByteSlice<'_>) -> XAttrMask,
-       do_parse!(tag!("0x") >> num: hex_num >> (XAttrMask::from_bits(num).unwrap())));
+named!(
+    xattrmask_parse(CompleteByteSlice<'_>) -> XAttrMask,
+    do_parse!(tag!("0x") >> num: hex_num >> (XAttrMask::from_bits(num).unwrap()))
+);
 
 /// Parse an AceFlag
-named!(aceflag_parse(CompleteByteSlice<'_>) -> AceFlag,
-       do_parse!(num: dec_num >> (AceFlag::from_bits(num as i32).unwrap())));
+named!(
+    aceflag_parse(CompleteByteSlice<'_>) -> AceFlag,
+    do_parse!(num: dec_num >> (AceFlag::from_bits(num as i32).unwrap()))
+);
 
 /// parse a binary number (0 or 1 only)
-named!(bool_num(CompleteByteSlice<'_>) -> i32,
-       do_parse!(i: alt!(recognize!(tag!("0")) | recognize!(tag!("1")))
-                 >> ({
-                     let s = String::from_utf8_lossy(i.as_bytes());
-                     i32::from_str_radix(&s, 2).unwrap()
-                 })));
+named!(
+    bool_num(CompleteByteSlice<'_>) -> i32,
+    do_parse!(
+        i: alt!(recognize!(tag!("0")) | recognize!(tag!("1")))
+            >> ({
+                let s = String::from_utf8_lossy(i.as_bytes());
+                i32::from_str_radix(&s, 2).unwrap()
+            })
+    )
+);
 
 /// Parse an AceAtype
-named!(aceatype_parse(CompleteByteSlice<'_>) -> AceAtype,
-       do_parse!(num: bool_num
-                 >> (match num {
-                     1 => AceAtype::DENIED,
-                     0 => AceAtype::ALLOWED,
-                     _ => AceAtype::ALLOWED,
-                 })));
+named!(
+    aceatype_parse(CompleteByteSlice<'_>) -> AceAtype,
+    do_parse!(
+        num: bool_num
+            >> (match num {
+                1 => AceAtype::DENIED,
+                0 => AceAtype::ALLOWED,
+                _ => AceAtype::ALLOWED,
+            })
+    )
+);
 
 /// Parse a DosMode
-named!(dosmode_parse(CompleteByteSlice<'_>) -> DosMode,
-       do_parse!(tag!("0x") >> num: hex_num >> (DosMode::from_bits(num).unwrap())));
+named!(
+    dosmode_parse(CompleteByteSlice<'_>) -> DosMode,
+    do_parse!(tag!("0x") >> num: hex_num >> (DosMode::from_bits(num).unwrap()))
+);
 
 /// Individual mode get parse
-named!(mode_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(dos: exact!(dosmode_parse) >> (SmbcXAttrValue::Mode(dos))));
+named!(
+    mode_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(dos: exact!(dosmode_parse) >> (SmbcXAttrValue::Mode(dos)))
+);
 
 /// Mode parse for .* call
-named!(mode_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
-       do_parse!(tag_no_case!("MODE:") >> dos: dosmode_parse >> (SmbcDosValue::MODE(dos))));
+named!(
+    mode_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
+    do_parse!(tag_no_case!("MODE:") >> dos: dosmode_parse >> (SmbcDosValue::MODE(dos)))
+);
 
 /// collect numbers seperated by -
-named!(list_dash(CompleteByteSlice<'_>) -> Vec<u64>,
-       do_parse!(nums: separated_list!(tag!("-"), dec_num) >> (nums)));
+named!(
+    list_dash(CompleteByteSlice<'_>) -> Vec<u64>,
+    do_parse!(nums: separated_list!(tag!("-"), dec_num) >> (nums))
+);
 
 /// Parse a numeric SID
 named!(pub sid_parse(CompleteByteSlice<'_>) -> Sid,
@@ -668,250 +700,342 @@ named!(pub sid_parse(CompleteByteSlice<'_>) -> Sid,
 );
 
 /// Parse a named SID for named individual SID's from ACL+
-named!(string_sid(CompleteByteSlice<'_>) -> String,
-       do_parse!(sid: take_until!(":") >> (from_utf8(sid.as_bytes()).unwrap().to_string())));
+named!(
+    string_sid(CompleteByteSlice<'_>) -> String,
+    do_parse!(sid: take_until!(":") >> (from_utf8(sid.as_bytes()).unwrap().to_string()))
+);
 
 /// Parse a named SID
-named!(sidplus_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(sid: exact!(read_string) >> (SmbcXAttrValue::SidPlus(sid))));
+named!(
+    sidplus_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(sid: exact!(read_string) >> (SmbcXAttrValue::SidPlus(sid)))
+);
 
 /// Parse a named SID for Group+ (.* call)
-named!(groupplus_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(tag!("GROUP:") >> sid: read_string >> (SmbcAclValue::GroupPlus(sid))));
+named!(
+    groupplus_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(tag!("GROUP:") >> sid: read_string >> (SmbcAclValue::GroupPlus(sid)))
+);
 
 /// Parse a numeric SID for Group (.* call)
-named!(groupsid_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(tag!("GROUP:") >> sid: sid_parse >> (SmbcAclValue::Group(sid))));
+named!(
+    groupsid_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(tag!("GROUP:") >> sid: sid_parse >> (SmbcAclValue::Group(sid)))
+);
 
 /// parse a SID for Group(+) (.* call)
-named!(group_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(grp: alt!(groupsid_all_parse | groupplus_all_parse) >> (grp)));
+named!(
+    group_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(grp: alt!(groupsid_all_parse | groupplus_all_parse) >> (grp))
+);
 
 /// Parse an SID for Owner+ (.* call)
-named!(ownerplus_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(tag!("OWNER:") >> sid: read_string >> (SmbcAclValue::OwnerPlus(sid))));
+named!(
+    ownerplus_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(tag!("OWNER:") >> sid: read_string >> (SmbcAclValue::OwnerPlus(sid)))
+);
 
 /// Parse an SID for Owner (.* call)
-named!(ownersid_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(tag!("OWNER:") >> sid: sid_parse >> (SmbcAclValue::Owner(sid))));
+named!(
+    ownersid_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(tag!("OWNER:") >> sid: sid_parse >> (SmbcAclValue::Owner(sid)))
+);
 
 /// Parse an SID for Owner(+) (.* call)
-named!(owner_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(own: alt!(ownersid_all_parse | ownerplus_all_parse) >> (own)));
+named!(
+    owner_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(own: alt!(ownersid_all_parse | ownerplus_all_parse) >> (own))
+);
 
 /// Parse a num for Revision (.* call)
-named!(revision_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(tag!("REVISION:") >> n: dec_num >> (SmbcAclValue::Revision(n))));
+named!(
+    revision_all_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(tag!("REVISION:") >> n: dec_num >> (SmbcAclValue::Revision(n)))
+);
 
 /// Parse a numeric system.nt_sec_desc.* call to an XAttrValue
-named!(nt_sec_num_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(rev: revision_all_parse
-                 >> tag!(",")
-                 >> own: owner_all_parse
-                 >> tag!(",")
-                 >> grp: group_all_parse
-                 >> tag!(",")
-                 >> acl: ace_all_parse
-                 >> ({
-                     let mut aval: Vec<SmbcAclValue> = vec![];
-                     aval.push(rev);
-                     aval.push(own);
-                     aval.push(grp);
-                     aval.extend(acl);
-                     SmbcXAttrValue::AclAll(aval)
-                 })));
+named!(
+    nt_sec_num_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(
+        rev: revision_all_parse
+            >> tag!(",")
+            >> own: owner_all_parse
+            >> tag!(",")
+            >> grp: group_all_parse
+            >> tag!(",")
+            >> acl: ace_all_parse
+            >> ({
+                let mut aval: Vec<SmbcAclValue> = vec![];
+                aval.push(rev);
+                aval.push(own);
+                aval.push(grp);
+                aval.extend(acl);
+                SmbcXAttrValue::AclAll(aval)
+            })
+    )
+);
 
 /// Parse a named system.nt_sec_desc.*+ call to an XAttrValue
-named!(nt_sec_name_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(rev: revision_all_parse
-                 >> tag!(",")
-                 >> own: owner_all_parse
-                 >> grp: group_all_parse
-                 >> acl: ace_all_parse
-                 >> ({
-                     let mut aval: Vec<SmbcAclValue> = vec![];
-                     aval.push(rev);
-                     aval.push(own);
-                     aval.push(grp);
-                     aval.extend(acl);
-                     SmbcXAttrValue::AclAll(aval)
-                 })));
+named!(
+    nt_sec_name_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(
+        rev: revision_all_parse
+            >> tag!(",")
+            >> own: owner_all_parse
+            >> grp: group_all_parse
+            >> acl: ace_all_parse
+            >> ({
+                let mut aval: Vec<SmbcAclValue> = vec![];
+                aval.push(rev);
+                aval.push(own);
+                aval.push(grp);
+                aval.extend(acl);
+                SmbcXAttrValue::AclAll(aval)
+            })
+    )
+);
 
 /// Parse a system.nt_sec_desc.* call to an XAttrValue
-named!(nt_sec_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(xattr: alt!(exact!(nt_sec_num_xattr_parse) | exact!(nt_sec_name_xattr_parse))
-                 >> (xattr)));
+named!(
+    nt_sec_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(
+        xattr: alt!(exact!(nt_sec_num_xattr_parse) | exact!(nt_sec_name_xattr_parse)) >> (xattr)
+    )
+);
 
 /// Parse a numeric system.nt_sec_desc.* call to a Vec SmbcAclValue
-named!(nt_sec_num_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
-       do_parse!(rev: revision_all_parse
-                 >> tag!(",")
-                 >> own: owner_all_parse
-                 >> tag!(",")
-                 >> grp: group_all_parse
-                 >> tag!(",")
-                 >> acl: ace_all_parse
-                 >> ({
-                     let mut aval: Vec<SmbcAclValue> = vec![];
-                     aval.push(rev);
-                     aval.push(own);
-                     aval.push(grp);
-                     aval.extend(acl);
-                     aval
-                 })));
+named!(
+    nt_sec_num_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
+    do_parse!(
+        rev: revision_all_parse
+            >> tag!(",")
+            >> own: owner_all_parse
+            >> tag!(",")
+            >> grp: group_all_parse
+            >> tag!(",")
+            >> acl: ace_all_parse
+            >> ({
+                let mut aval: Vec<SmbcAclValue> = vec![];
+                aval.push(rev);
+                aval.push(own);
+                aval.push(grp);
+                aval.extend(acl);
+                aval
+            })
+    )
+);
 
 /// Parse a named system.nt_sec_desc.* call to a Vec SmbcAclValue
-named!(nt_sec_name_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
-       do_parse!(rev: revision_all_parse
-                 >> tag!(",")
-                 >> own: owner_all_parse
-                 >> grp: group_all_parse
-                 >> acl: ace_all_parse
-                 >> ({
-                     let mut aval: Vec<SmbcAclValue> = vec![];
-                     aval.push(rev);
-                     aval.push(own);
-                     aval.push(grp);
-                     aval.extend(acl);
-                     aval
-                 })));
+named!(
+    nt_sec_name_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
+    do_parse!(
+        rev: revision_all_parse
+            >> tag!(",")
+            >> own: owner_all_parse
+            >> grp: group_all_parse
+            >> acl: ace_all_parse
+            >> ({
+                let mut aval: Vec<SmbcAclValue> = vec![];
+                aval.push(rev);
+                aval.push(own);
+                aval.push(grp);
+                aval.extend(acl);
+                aval
+            })
+    )
+);
 
 /// Parse  a system.nt_sec_desc.* call to a Vec SmbcAclValue
-named!(nt_sec_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
-       do_parse!(val: alt!(nt_sec_num_all_parse | nt_sec_name_all_parse) >> (val)));
+named!(
+    nt_sec_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
+    do_parse!(val: alt!(nt_sec_num_all_parse | nt_sec_name_all_parse) >> (val))
+);
 
 ///For named individual SID's (from Owner+, Group+)
-named!(read_string(CompleteByteSlice<'_>) -> String,
-       do_parse!(sid: alt!(many_till!(anychar, tag!(",")) | many_till!(anychar, eof!()))
-                 >> (sid.0.iter().collect::<String>())));
+named!(
+    read_string(CompleteByteSlice<'_>) -> String,
+    do_parse!(
+        sid: alt!(many_till!(anychar, tag!(",")) | many_till!(anychar, eof!()))
+            >> (sid.0.iter().collect::<String>())
+    )
+);
 
 /// Parse a specific ACL into an ACE
-named!(ace_parse(CompleteByteSlice<'_>) -> ACE,
-       do_parse!(sid: take_until!(":")
-                 >> tag!(":")
-                 >> atype: aceatype_parse
-                 >> tag!("/")
-                 >> aflag: aceflag_parse
-                 >> tag!("/")
-                 >> amask: xattrmask_parse
-                 >> (match sid_parse(sid) {
-                     Ok((_, s)) => ACE::Numeric(SidType::Numeric(Some(s)), atype, aflag, amask),
-                     Err(_) => {
-                         let str_sid = from_utf8(sid.as_bytes()).unwrap().to_string();
-                         let mask = format!("{}", amask);
-                         ACE::Named(SidType::Named(Some(str_sid)), atype, aflag, mask)
-                     }
-                 })));
+named!(
+    ace_parse(CompleteByteSlice<'_>) -> ACE,
+    do_parse!(
+        sid: take_until!(":")
+            >> tag!(":")
+            >> atype: aceatype_parse
+            >> tag!("/")
+            >> aflag: aceflag_parse
+            >> tag!("/")
+            >> amask: xattrmask_parse
+            >> (match sid_parse(sid) {
+                Ok((_, s)) => ACE::Numeric(SidType::Numeric(Some(s)), atype, aflag, amask),
+                Err(_) => {
+                    let str_sid = from_utf8(sid.as_bytes()).unwrap().to_string();
+                    let mask = format!("{}", amask);
+                    ACE::Named(SidType::Named(Some(str_sid)), atype, aflag, mask)
+                }
+            })
+    )
+);
 
 /// Parse a specific ACL from system.* or nt_sec_desc.* into an SmbcAclValue
-named!(acl_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(tag!("ACL:")
-                 >> ace: ace_parse
-                 >> (match ace {
-                     ACE::Named(..) => SmbcAclValue::AclPlus(ace),
-                     ACE::Numeric(..) => SmbcAclValue::Acl(ace),
-                 })));
+named!(
+    acl_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(
+        tag!("ACL:")
+            >> ace: ace_parse
+            >> (match ace {
+                ACE::Named(..) => SmbcAclValue::AclPlus(ace),
+                ACE::Numeric(..) => SmbcAclValue::Acl(ace),
+            })
+    )
+);
 
 /// parse a list of ACL's (from nt_sec_desc.* or system.*) into a Vec SmbcAclValue
-named!(ace_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
-       do_parse!(aces: separated_list!(tag!(","), acl_parse) >> (aces)));
+named!(
+    ace_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
+    do_parse!(aces: separated_list!(tag!(","), acl_parse) >> (aces))
+);
 
 /// Parse a specific ACL into an SmbcAclValue (from .acl:Sid or acl.*)
-named!(aclsid_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
-       do_parse!(ace: ace_parse
-                 >> (match ace {
-                     ACE::Named(..) => SmbcAclValue::AclPlus(ace),
-                     ACE::Numeric(..) => SmbcAclValue::Acl(ace),
-                 })));
+named!(
+    aclsid_parse(CompleteByteSlice<'_>) -> SmbcAclValue,
+    do_parse!(
+        ace: ace_parse
+            >> (match ace {
+                ACE::Named(..) => SmbcAclValue::AclPlus(ace),
+                ACE::Numeric(..) => SmbcAclValue::Acl(ace),
+            })
+    )
+);
 
 /// parse a list of ACL's (acl.*) into a Vec SmbcAclValue
-named!(aceall_xattr_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
-       do_parse!(aces: exact!(separated_list!(tag!(","), aclsid_parse)) >> (aces)));
+named!(
+    aceall_xattr_parse(CompleteByteSlice<'_>) -> Vec<SmbcAclValue>,
+    do_parse!(aces: exact!(separated_list!(tag!(","), aclsid_parse)) >> (aces))
+);
 
-named!(acestat_parse(CompleteByteSlice<'_>) -> ACE,
-       do_parse!(atype: aceatype_parse
-                 >> tag!("/")
-                 >> aflag: aceflag_parse
-                 >> tag!("/")
-                 >> amask: xattrmask_parse
-                 >> (ACE::Numeric(SidType::Numeric(None), atype, aflag, amask))));
+named!(
+    acestat_parse(CompleteByteSlice<'_>) -> ACE,
+    do_parse!(
+        atype: aceatype_parse
+            >> tag!("/")
+            >> aflag: aceflag_parse
+            >> tag!("/")
+            >> amask: xattrmask_parse
+            >> (ACE::Numeric(SidType::Numeric(None), atype, aflag, amask))
+    )
+);
 
 /// parse an individual ace from acl:sid into a SmbcXAttrValue
-named!(ace_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(ace: exact!(acestat_parse) >> (SmbcXAttrValue::Ace(ace))));
+named!(
+    ace_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(ace: exact!(acestat_parse) >> (SmbcXAttrValue::Ace(ace)))
+);
 
 /// Parse a list of ACL's from (acl.*) into an SmbcXAttrValue
-named!(acl_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(aces: exact!(aceall_xattr_parse) >> (SmbcXAttrValue::AclAll(aces))));
+named!(
+    acl_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(aces: exact!(aceall_xattr_parse) >> (SmbcXAttrValue::AclAll(aces)))
+);
 
 /// Parse a numeric SID (Owner, Group call) to an SmbcXAttrValue
-named!(sid_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(sid: exact!(sid_parse) >> (SmbcXAttrValue::Sid(sid))));
+named!(
+    sid_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(sid: exact!(sid_parse) >> (SmbcXAttrValue::Sid(sid)))
+);
 
 /// Parse an individual #_time, revision, or inode attribute into a SmbcXAttrValue
-named!(unsigned_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(n: exact!(dec_num) >> (SmbcXAttrValue::Unsigned(n))));
+named!(
+    unsigned_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(n: exact!(dec_num) >> (SmbcXAttrValue::Unsigned(n)))
+);
 
 /// Parse an a_time for a .* call
-named!(atime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
-       do_parse!(tag!("A_TIME:") >> n: dec_num >> (SmbcDosValue::ATime(n))));
+named!(
+    atime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
+    do_parse!(tag!("A_TIME:") >> n: dec_num >> (SmbcDosValue::ATime(n)))
+);
 
 /// Parse an m_time for a .* call
-named!(mtime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
-       do_parse!(tag!("M_TIME:") >> n: dec_num >> (SmbcDosValue::MTime(n))));
+named!(
+    mtime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
+    do_parse!(tag!("M_TIME:") >> n: dec_num >> (SmbcDosValue::MTime(n)))
+);
 
 /// Parse a c_time for a .* call
-named!(ctime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
-       do_parse!(tag!("C_TIME:") >> n: dec_num >> (SmbcDosValue::CTime(n))));
+named!(
+    ctime_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
+    do_parse!(tag!("C_TIME:") >> n: dec_num >> (SmbcDosValue::CTime(n)))
+);
 
 /// Parse an inode for a .* call
-named!(inode_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
-       do_parse!(tag!("INODE:") >> n: dec_num >> (SmbcDosValue::INode(n))));
+named!(
+    inode_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
+    do_parse!(tag!("INODE:") >> n: dec_num >> (SmbcDosValue::INode(n)))
+);
 
 /// Parse a signed individual xattr value (aka .size)
-named!(signed_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(n: exact!(sdec_num) >> (SmbcXAttrValue::Signed(n))));
+named!(
+    signed_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(n: exact!(sdec_num) >> (SmbcXAttrValue::Signed(n)))
+);
 
 /// Parse a size for a .* call
-named!(size_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
-       do_parse!(tag!("SIZE:") >> n: sdec_num >> (SmbcDosValue::Size(n))));
+named!(
+    size_all_parse(CompleteByteSlice<'_>) -> SmbcDosValue,
+    do_parse!(tag!("SIZE:") >> n: sdec_num >> (SmbcDosValue::Size(n)))
+);
 
 /// Parse a dos_attr.* call
-named!(dos_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(mode: mode_all_parse
-                 >> tag!(",")
-                 >> size: size_all_parse
-                 >> tag!(",")
-                 >> atime: atime_all_parse
-                 >> tag!(",")
-                 >> mtime: mtime_all_parse
-                 >> tag!(",")
-                 >> ctime: ctime_all_parse
-                 >> tag!(",")
-                 >> inode: inode_all_parse
-                 >> (SmbcXAttrValue::DosAll(vec![mode, size, atime, mtime, ctime, inode]))));
+named!(
+    dos_xattr_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(
+        mode: mode_all_parse
+            >> tag!(",")
+            >> size: size_all_parse
+            >> tag!(",")
+            >> atime: atime_all_parse
+            >> tag!(",")
+            >> mtime: mtime_all_parse
+            >> tag!(",")
+            >> ctime: ctime_all_parse
+            >> tag!(",")
+            >> inode: inode_all_parse
+            >> (SmbcXAttrValue::DosAll(vec![mode, size, atime, mtime, ctime, inode]))
+    )
+);
 
 /// Parse all dos attr for a system.* call
-named!(dos_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcDosValue>,
-       do_parse!(mode: mode_all_parse
-                 >> tag!(",")
-                 >> size: size_all_parse
-                 >> tag!(",")
-                 >> atime: atime_all_parse
-                 >> tag!(",")
-                 >> mtime: mtime_all_parse
-                 >> tag!(",")
-                 >> ctime: ctime_all_parse
-                 >> tag!(",")
-                 >> inode: inode_all_parse
-                 >> (vec![mode, size, atime, mtime, ctime, inode])));
+named!(
+    dos_all_parse(CompleteByteSlice<'_>) -> Vec<SmbcDosValue>,
+    do_parse!(
+        mode: mode_all_parse
+            >> tag!(",")
+            >> size: size_all_parse
+            >> tag!(",")
+            >> atime: atime_all_parse
+            >> tag!(",")
+            >> mtime: mtime_all_parse
+            >> tag!(",")
+            >> ctime: ctime_all_parse
+            >> tag!(",")
+            >> inode: inode_all_parse
+            >> (vec![mode, size, atime, mtime, ctime, inode])
+    )
+);
 
 /// Parse a system.* call
-named!(system_all_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
-       do_parse!(nt: nt_sec_all_parse
-                 >> tag!(",")
-                 >> dos: dos_all_parse
-                 >> (SmbcXAttrValue::All(nt, dos))));
+named!(
+    system_all_parse(CompleteByteSlice<'_>) -> SmbcXAttrValue,
+    do_parse!(
+        nt: nt_sec_all_parse >> tag!(",") >> dos: dos_all_parse >> (SmbcXAttrValue::All(nt, dos))
+    )
+);
 
 /// Parse any getxattr valye to SmbcXattrValue
 named!(pub xattr_parser(CompleteByteSlice<'_>) -> SmbcXAttrValue,
