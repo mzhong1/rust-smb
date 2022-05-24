@@ -19,7 +19,7 @@ use crate::{
 };
 use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, strncpy, EINVAL};
-use nix::{fcntl::OFlag, sys::stat::Mode};
+pub use nix::{fcntl::OFlag, sys::stat::Mode};
 use nom::types::CompleteByteSlice;
 use rust_smbclient_sys::*;
 
