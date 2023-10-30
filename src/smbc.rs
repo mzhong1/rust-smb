@@ -2292,14 +2292,18 @@ fn stat_micros_mod_sec(timestamp: timespec) -> __syscall_slong_t {
 
 pub fn print_timeval_secs(timestamp: timeval) {
     let time = num_seconds(timestamp);
-    let naive_datetime = NaiveDateTime::from_timestamp(time, 0);
-    let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-    println!("{:?}", datetime);
+    if let Some(datetime) = DateTime::from_timestamp(time, 0) {
+        println!("{:?}", datetime);
+    } else {
+        println!("Invalid date");
+    }
 }
 
 pub fn print_timespec_secs(timestamp: timespec) {
     let time = stat_seconds(timestamp);
-    let naive_datetime = NaiveDateTime::from_timestamp(time, 0);
-    let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-    println!("{:?}", datetime);
+    if let Some(datetime) = DateTime::from_timestamp(time, 0) {
+        println!("{:?}", datetime);
+    } else {
+        println!("Invalid date");
+    }
 }
