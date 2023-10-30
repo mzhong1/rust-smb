@@ -10,7 +10,7 @@ edition = "2018"
 [dependencies]
 libc = "0.2.149"
 log = "0.4.20"
-rust-smbclient-sys = { git = "https://github.com/mhu-tnl/rust_smbclient_sys.git" }
+rust-smbclient-sys = { git = "https://github.com/mzhong1/rust_smbclient_sys.git" }
 bitflags = "2.4.1"
 nix = { version = "0.27.1", features = ["fs"] }
 chrono = "0.4.31"
