@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 /// error handlers
 pub mod error;
 

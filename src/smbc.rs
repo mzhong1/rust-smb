@@ -1,7 +1,8 @@
 //! `smbc` wraps the `libsmbclient` from Samba
 
+#![allow(unused_parens, clippy::tabs_in_doc_comments)]
+
 use std::{
-    convert::TryInto,
     ffi::{CStr, CString},
     fmt,
     io::{self, Error, ErrorKind, Read, Result as IoResult, Seek, SeekFrom, Write},
@@ -20,7 +21,6 @@ use crate::{
 use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, strncpy, EINVAL};
 pub use nix::{fcntl::OFlag, sys::stat::Mode};
-use nom::types::CompleteByteSlice;
 use rust_smbclient_sys::*;
 
 use bitflags::bitflags;
@@ -28,8 +28,8 @@ use lazy_static::*;
 use log::{error, trace};
 use percent_encoding::*;
 
-/// NOTE: Any weird formats can be checked against the libsmb-xxx.c files in the samba source code.
-/// Feel free to make edits if they ever actually get updated (probably never)
+// NOTE: Any weird formats can be checked against the libsmb-xxx.c files in the samba source code.
+// Feel free to make edits if they ever actually get updated (probably never)
 
 lazy_static! {
     pub static ref USER_DATA: Arc<Mutex<Vec<String>>> =
@@ -60,7 +60,7 @@ fn check_neg_result<T: Eq + From<i8>>(t: T) -> IoResult<T> {
 
 fn is_einval<T: Eq + From<i8>>(t: T) -> IoResult<T> {
     if t == T::from(-1) {
-        Err(Error::from_raw_os_error(EINVAL as i32))
+        Err(Error::from_raw_os_error(EINVAL))
     } else {
         Ok(t)
     }
@@ -180,7 +180,7 @@ pub struct Smbc {
 
 bitflags! {
     /// The Attribute Flags needed in a setxattr call
-    pub struct XAttrFlags :i32 {
+    pub struct XAttrFlags : i32 {
         /// zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
         /// create new attribute
@@ -192,6 +192,7 @@ bitflags! {
 
 bitflags! {
     /// ACL attribute mask constants
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
     pub struct XAttrMask : i32 {
         /// Allow Read Access
         const R = 0x0012_0089;
@@ -266,25 +267,25 @@ impl fmt::Display for XAttrMask {
             return write!(f, "{}", buff);
         }
         if self.contains(XAttrMask::R) {
-            buff.push_str("R");
+            buff.push('R');
         }
         if self.contains(XAttrMask::W) {
-            buff.push_str("W");
+            buff.push('W');
         }
         if self.contains(XAttrMask::X) {
-            buff.push_str("X");
+            buff.push('X');
         }
         if self.contains(XAttrMask::D) {
-            buff.push_str("D");
+            buff.push('D');
         }
         if self.contains(XAttrMask::P) {
-            buff.push_str("P");
+            buff.push('P');
         }
         if self.contains(XAttrMask::O) {
-            buff.push_str("O");
+            buff.push('O');
         }
         if self.contains(XAttrMask::N) && buff.is_empty() {
-            buff.push_str("N");
+            buff.push('N');
         }
         write!(f, "{}", buff)
     }
@@ -292,6 +293,7 @@ impl fmt::Display for XAttrMask {
 
 bitflags! {
     /// Dos Mode constants
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
     pub struct DosMode : i32 {
         /// Readonly file.  Note the read-only attribute is not honored on directories
         const READONLY = 0x01;
@@ -486,14 +488,14 @@ pub enum SmbcAclAttr {
 impl fmt::Display for SmbcAclAttr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SmbcAclAttr::Acl(s) => write!(f, "system.nt_sec_desc.acl{}", format!(":{}", s)),
+            SmbcAclAttr::Acl(s) => write!(f, "system.nt_sec_desc.acl:{}", s),
             SmbcAclAttr::AclAll => write!(f, "system.nt_sec_desc.acl.*"),
             SmbcAclAttr::AclAllPlus => write!(f, "system.nt_sec_desc.acl.*+"),
             SmbcAclAttr::AclNone => write!(f, "system.nt_sec_desc.acl"),
             SmbcAclAttr::AclNonePlus => write!(f, "system.nt_sec_desc.acl+"),
-            SmbcAclAttr::AclPlus(s) => write!(f, "system.nt_sec_desc.acl+{}", format!(":{}", s)),
-            SmbcAclAttr::AclSid(s) => write!(f, "system.nt_sec_desc.acl{}", format!("{}", s)),
-            SmbcAclAttr::AclSidPlus(s) => write!(f, "system.nt_sec_desc.acl+{}", format!("{}", s)),
+            SmbcAclAttr::AclPlus(s) => write!(f, "system.nt_sec_desc.acl+:{}", s),
+            SmbcAclAttr::AclSid(s) => write!(f, "system.nt_sec_desc.acl{}", s),
+            SmbcAclAttr::AclSidPlus(s) => write!(f, "system.nt_sec_desc.acl+{}", s),
             SmbcAclAttr::All => write!(f, "system.nt_sec_desc.*"),
             SmbcAclAttr::AllPlus => write!(f, "system.nt_sec_desc.*+"),
             SmbcAclAttr::AllExclude(s) => write!(f, "system.nt_sec_desc.*!{}", separated(s, "!")),
@@ -538,12 +540,12 @@ pub enum SmbcAclValue {
 impl fmt::Display for SmbcAclValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SmbcAclValue::Acl(s) => write!(f, "ACL:{}", format!("{}", s)),
-            SmbcAclValue::AclPlus(s) => write!(f, "ACL+:{}", format!("{}", s)),
-            SmbcAclValue::Group(s) => write!(f, "GROUP:{}", format!("{}", s)),
+            SmbcAclValue::Acl(s) => write!(f, "ACL:{}", s),
+            SmbcAclValue::AclPlus(s) => write!(f, "ACL+:{}", s),
+            SmbcAclValue::Group(s) => write!(f, "GROUP:{}", s),
             SmbcAclValue::GroupPlus(s) => write!(f, "GROUP+:{}", s),
             SmbcAclValue::Revision(i) => write!(f, "REVISION:{}", i),
-            SmbcAclValue::Owner(s) => write!(f, "OWNER:{}", format!("{}", s)),
+            SmbcAclValue::Owner(s) => write!(f, "OWNER:{}", s),
             SmbcAclValue::OwnerPlus(s) => write!(f, "OWNER+:{}", s),
         }
     }
@@ -561,6 +563,7 @@ pub enum AceAtype {
 bitflags! {
     /// Note: currently these flags can only be specified as decimal or hex values.
     /// 9 or 2 is usually the value for directories
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
     pub struct AceFlag : i32{
         /// This is usually the flag for files
         const NONE = 0;
@@ -653,12 +656,10 @@ impl ACE {
     pub fn sid(&self) -> SmbcResult<Sid> {
         match self {
             ACE::Numeric(SidType::Numeric(Some(sid)), ..) => Ok(sid.clone()),
-            ACE::Named(SidType::Named(Some(sid)), ..) => {
-                match sid_parse(CompleteByteSlice(sid.as_bytes())) {
-                    Ok((_, parse_sid)) => Ok(parse_sid),
-                    Err(_e) => Err(SmbcError::SmbcXAttrError("Unable to parse SID!".to_string())),
-                }
-            }
+            ACE::Named(SidType::Named(Some(sid)), ..) => match sid_parse(sid.as_bytes()) {
+                Ok((_, parse_sid)) => Ok(parse_sid),
+                Err(_e) => Err(SmbcError::SmbcXAttrError("Unable to parse SID!".to_string())),
+            },
             ACE::Numeric(SidType::Numeric(None), ..) => {
                 error!("SidType should not be None!");
                 Err(SmbcError::SmbcXAttrError("SidType is None!".to_string()))
@@ -717,18 +718,18 @@ impl fmt::Display for ACE {
         match self {
             ACE::Numeric(s, atype, flags, mask) => match atype {
                 AceAtype::ALLOWED => {
-                    write!(f, "{}:0/{}/{}", format!("{}", s), flags.bits(), mask.bits(),)
+                    write!(f, "{}:0/{}/{}", s, flags.bits(), mask.bits(),)
                 }
                 AceAtype::DENIED => {
-                    write!(f, "{}:1/{}/{}", format!("{}", s), flags.bits(), mask.bits())
+                    write!(f, "{}:1/{}/{}", s, flags.bits(), mask.bits())
                 }
             },
             ACE::Named(sid, atype, flags, mask) => match atype {
                 AceAtype::ALLOWED => {
-                    write!(f, "{}:ALLOWED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
+                    write!(f, "{}:ALLOWED/{:x}/{}", sid, flags.bits(), mask)
                 }
                 AceAtype::DENIED => {
-                    write!(f, "{}:DENIED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
+                    write!(f, "{}:DENIED/{:x}/{}", sid, flags.bits(), mask)
                 }
             },
         }
@@ -823,7 +824,7 @@ impl fmt::Display for SmbcXAttrValue {
             }
             SmbcXAttrValue::All(a, d) => {
                 let mut comma_separated = separated(a, "\n");
-                comma_separated.push_str(",");
+                comma_separated.push(',');
                 let dcomma_separated = separated(d, "\t");
                 comma_separated.push_str(&dcomma_separated);
                 write!(f, "{}", comma_separated)
@@ -2180,7 +2181,7 @@ impl Iterator for SmbcDirectory {
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
         let name = (unsafe { CStr::from_ptr(ptr) }).to_string_lossy().into_owned();
 
-        let filename = percent_decode(&name.as_bytes()).decode_utf8_lossy();
+        let filename = percent_decode(name.as_bytes()).decode_utf8_lossy();
         trace!(target: "smbc", "Filename: {:?}", filename);
 
         let s_type = match unsafe { SmbcType::from((*dirent).smbc_type) } {
@@ -2229,9 +2230,9 @@ pub fn num_minutes(timestamp: timeval) -> i64 {
 
 pub fn num_seconds(timestamp: timeval) -> i64 {
     if timestamp.tv_sec < 0 && timestamp.tv_usec > 0 {
-        (timestamp.tv_sec + 1) as i64
+        (timestamp.tv_sec + 1)
     } else {
-        timestamp.tv_sec as i64
+        timestamp.tv_sec
     }
 }
 
@@ -2264,9 +2265,9 @@ pub fn stat_minutes(timestamp: timespec) -> i64 {
 
 pub fn stat_seconds(timestamp: timespec) -> i64 {
     if timestamp.tv_sec < 0 && timestamp.tv_nsec > 0 {
-        (timestamp.tv_sec + 1) as i64
+        (timestamp.tv_sec + 1)
     } else {
-        timestamp.tv_sec as i64
+        timestamp.tv_sec
     }
 }
 
@@ -2291,14 +2292,18 @@ fn stat_micros_mod_sec(timestamp: timespec) -> __syscall_slong_t {
 
 pub fn print_timeval_secs(timestamp: timeval) {
     let time = num_seconds(timestamp);
-    let naive_datetime = NaiveDateTime::from_timestamp(time, 0);
-    let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-    println!("{:?}", datetime);
+    if let Some(datetime) = DateTime::from_timestamp(time, 0) {
+        println!("{:?}", datetime);
+    } else {
+        println!("Invalid date");
+    }
 }
 
 pub fn print_timespec_secs(timestamp: timespec) {
     let time = stat_seconds(timestamp);
-    let naive_datetime = NaiveDateTime::from_timestamp(time, 0);
-    let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-    println!("{:?}", datetime);
+    if let Some(datetime) = DateTime::from_timestamp(time, 0) {
+        println!("{:?}", datetime);
+    } else {
+        println!("Invalid date");
+    }
 }
