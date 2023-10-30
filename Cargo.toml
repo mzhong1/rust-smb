@@ -1,6 +1,6 @@
 [package]
 name = "rust-smb"
-version = "0.1.0"
+version = "1.0.0"
 description = "type-safe libsmbclient wrapper"
 authors = ["Michelle Zhong <mzhong215@cable.comcast.com>"]
 license = "MIT"
@@ -8,13 +8,13 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-libc = "~0.2"
-log = "~0.4"
-rust-smbclient-sys = {git = "https://github.com/mzhong1/rust_smbclient_sys.git"}
-bitflags = "~1.0"
-nix = "0.11"
-chrono = "0.4.6"
-nom = "4.1.1"
-percent-encoding = "1.0.1"
-lazy_static = "1.2.0"
-derive-error = "0.0.4"
+libc = "0.2.149"
+log = "0.4.20"
+rust-smbclient-sys = { git = "https://github.com/mzhong1/rust_smbclient_sys.git" }
+bitflags = "2.4.1"
+nix = { version = "0.27.1", features = ["fs"] }
+chrono = "0.4.31"
+nom = "7.1.3"
+percent-encoding = "2.3.0"
+lazy_static = "1.4.0"
+derive-error = "0.0.5"

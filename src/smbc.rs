@@ -1,22 +1,26 @@
 //! `smbc` wraps the `libsmbclient` from Samba
 
-use std::{convert::TryInto,
-          ffi::{CStr, CString},
-          fmt,
-          io::{self, Error, ErrorKind, Read, Result as IoResult, Seek, SeekFrom, Write},
-          mem::zeroed,
-          os::{raw::c_void, unix::ffi::OsStrExt},
-          panic,
-          path::{Path, PathBuf},
-          ptr,
-          sync::{Arc, Mutex}};
+#![allow(unused_parens, clippy::tabs_in_doc_comments)]
 
-use crate::{error::{SmbcError, SmbcResult},
-            parser::*};
+use std::{
+    ffi::{CStr, CString},
+    fmt,
+    io::{self, Error, ErrorKind, Read, Result as IoResult, Seek, SeekFrom, Write},
+    mem::zeroed,
+    os::{raw::c_void, unix::ffi::OsStrExt},
+    panic,
+    path::{Path, PathBuf},
+    ptr,
+    sync::{Arc, Mutex},
+};
+
+use crate::{
+    error::{SmbcError, SmbcResult},
+    parser::*,
+};
 use chrono::*;
 use libc::{c_char, c_int, mode_t, off_t, strncpy, EINVAL};
-use nix::{fcntl::OFlag, sys::stat::Mode};
-use nom::types::CompleteByteSlice;
+pub use nix::{fcntl::OFlag, sys::stat::Mode};
 use rust_smbclient_sys::*;
 
 use bitflags::bitflags;
@@ -24,8 +28,8 @@ use lazy_static::*;
 use log::{error, trace};
 use percent_encoding::*;
 
-/// NOTE: Any weird formats can be checked against the libsmb-xxx.c files in the samba source code.
-/// Feel free to make edits if they ever actually get updated (probably never)
+// NOTE: Any weird formats can be checked against the libsmb-xxx.c files in the samba source code.
+// Feel free to make edits if they ever actually get updated (probably never)
 
 lazy_static! {
     pub static ref USER_DATA: Arc<Mutex<Vec<String>>> =
@@ -56,7 +60,7 @@ fn check_neg_result<T: Eq + From<i8>>(t: T) -> IoResult<T> {
 
 fn is_einval<T: Eq + From<i8>>(t: T) -> IoResult<T> {
     if t == T::from(-1) {
-        Err(Error::from_raw_os_error(EINVAL as i32))
+        Err(Error::from_raw_os_error(EINVAL))
     } else {
         Ok(t)
     }
@@ -95,52 +99,69 @@ pub struct Smbc {
         (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE, st: *mut stat) -> c_int),
     pub ftruncate_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, f: *mut SMBCFILE, size: off_t) -> c_int),
-    pub getdents_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          dir: *mut SMBCFILE,
-                          dirp: *mut smbc_dirent,
-                          count: c_int) -> c_int),
-    pub getxattr_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          fname: *const c_char,
-                          name: *const c_char,
-                          value: *const c_void,
-                          size: usize) -> c_int),
-    pub listxattr_fn: (unsafe extern "C" fn(context: *mut SMBCCTX,
-                          fname: *const c_char,
-                          list: *mut c_char,
-                          size: usize) -> c_int),
-    pub lseek_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          file: *mut SMBCFILE,
-                          offset: off_t,
-                          whence: c_int) -> off_t),
+    pub getdents_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        dir: *mut SMBCFILE,
+        dirp: *mut smbc_dirent,
+        count: c_int,
+    ) -> c_int),
+    pub getxattr_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        fname: *const c_char,
+        name: *const c_char,
+        value: *const c_void,
+        size: usize,
+    ) -> c_int),
+    pub listxattr_fn: (unsafe extern "C" fn(
+        context: *mut SMBCCTX,
+        fname: *const c_char,
+        list: *mut c_char,
+        size: usize,
+    ) -> c_int),
+    pub lseek_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        offset: off_t,
+        whence: c_int,
+    ) -> off_t),
     pub lseekdir_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE, offset: off_t) -> c_int),
     pub mkdir_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, mode: mode_t) -> c_int),
-    pub open_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          fname: *const c_char,
-                          flags: c_int,
-                          mode: mode_t) -> *mut SMBCFILE),
+    pub open_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        fname: *const c_char,
+        flags: c_int,
+        mode: mode_t,
+    ) -> *mut SMBCFILE),
     pub opendir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char) -> *mut SMBCFILE),
-    pub read_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          file: *mut SMBCFILE,
-                          buf: *mut c_void,
-                          count: usize) -> isize),
+    pub read_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *mut c_void,
+        count: usize,
+    ) -> isize),
     pub readdir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, dir: *mut SMBCFILE) -> *mut smbc_dirent),
-    pub removexattr_fn: (unsafe extern "C" fn(context: *mut SMBCCTX,
-                          fname: *const c_char,
-                          name: *const c_char)
-                          -> c_int),
-    pub rename_fn: (unsafe extern "C" fn(ocontext: *mut SMBCCTX,
-                          oname: *const c_char,
-                          ncontext: *mut SMBCCTX,
-                          nname: *const c_char) -> c_int),
+    pub removexattr_fn: (unsafe extern "C" fn(
+        context: *mut SMBCCTX,
+        fname: *const c_char,
+        name: *const c_char,
+    ) -> c_int),
+    pub rename_fn: (unsafe extern "C" fn(
+        ocontext: *mut SMBCCTX,
+        oname: *const c_char,
+        ncontext: *mut SMBCCTX,
+        nname: *const c_char,
+    ) -> c_int),
     pub rmdir_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char) -> c_int),
-    pub setxattr_fn: (unsafe extern "C" fn(context: *mut SMBCCTX,
-                          fname: *const c_char,
-                          name: *const c_char,
-                          value: *const c_void,
-                          size: usize,
-                          flags: c_int) -> c_int),
+    pub setxattr_fn: (unsafe extern "C" fn(
+        context: *mut SMBCCTX,
+        fname: *const c_char,
+        name: *const c_char,
+        value: *const c_void,
+        size: usize,
+        flags: c_int,
+    ) -> c_int),
     pub stat_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, st: *mut stat) -> c_int),
     pub statvfs_fn:
@@ -149,15 +170,17 @@ pub struct Smbc {
     pub unlink_fn: (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char) -> c_int),
     pub utimes_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, fname: *const c_char, tbuf: *mut timeval) -> c_int),
-    pub write_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          file: *mut SMBCFILE,
-                          buf: *const c_void,
-                          count: usize) -> isize),
+    pub write_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *const c_void,
+        count: usize,
+    ) -> isize),
 }
 
 bitflags! {
     /// The Attribute Flags needed in a setxattr call
-    pub struct XAttrFlags :i32 {
+    pub struct XAttrFlags : i32 {
         /// zeroed
         const SMBC_XATTR_FLAG_NONE = 0x0;
         /// create new attribute
@@ -169,6 +192,7 @@ bitflags! {
 
 bitflags! {
     /// ACL attribute mask constants
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
     pub struct XAttrMask : i32 {
         /// Allow Read Access
         const R = 0x0012_0089;
@@ -243,25 +267,25 @@ impl fmt::Display for XAttrMask {
             return write!(f, "{}", buff);
         }
         if self.contains(XAttrMask::R) {
-            buff.push_str("R");
+            buff.push('R');
         }
         if self.contains(XAttrMask::W) {
-            buff.push_str("W");
+            buff.push('W');
         }
         if self.contains(XAttrMask::X) {
-            buff.push_str("X");
+            buff.push('X');
         }
         if self.contains(XAttrMask::D) {
-            buff.push_str("D");
+            buff.push('D');
         }
         if self.contains(XAttrMask::P) {
-            buff.push_str("P");
+            buff.push('P');
         }
         if self.contains(XAttrMask::O) {
-            buff.push_str("O");
+            buff.push('O');
         }
         if self.contains(XAttrMask::N) && buff.is_empty() {
-            buff.push_str("N");
+            buff.push('N');
         }
         write!(f, "{}", buff)
     }
@@ -269,6 +293,7 @@ impl fmt::Display for XAttrMask {
 
 bitflags! {
     /// Dos Mode constants
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
     pub struct DosMode : i32 {
         /// Readonly file.  Note the read-only attribute is not honored on directories
         const READONLY = 0x01;
@@ -463,14 +488,14 @@ pub enum SmbcAclAttr {
 impl fmt::Display for SmbcAclAttr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SmbcAclAttr::Acl(s) => write!(f, "system.nt_sec_desc.acl{}", format!(":{}", s)),
+            SmbcAclAttr::Acl(s) => write!(f, "system.nt_sec_desc.acl:{}", s),
             SmbcAclAttr::AclAll => write!(f, "system.nt_sec_desc.acl.*"),
             SmbcAclAttr::AclAllPlus => write!(f, "system.nt_sec_desc.acl.*+"),
             SmbcAclAttr::AclNone => write!(f, "system.nt_sec_desc.acl"),
             SmbcAclAttr::AclNonePlus => write!(f, "system.nt_sec_desc.acl+"),
-            SmbcAclAttr::AclPlus(s) => write!(f, "system.nt_sec_desc.acl+{}", format!(":{}", s)),
-            SmbcAclAttr::AclSid(s) => write!(f, "system.nt_sec_desc.acl{}", format!("{}", s)),
-            SmbcAclAttr::AclSidPlus(s) => write!(f, "system.nt_sec_desc.acl+{}", format!("{}", s)),
+            SmbcAclAttr::AclPlus(s) => write!(f, "system.nt_sec_desc.acl+:{}", s),
+            SmbcAclAttr::AclSid(s) => write!(f, "system.nt_sec_desc.acl{}", s),
+            SmbcAclAttr::AclSidPlus(s) => write!(f, "system.nt_sec_desc.acl+{}", s),
             SmbcAclAttr::All => write!(f, "system.nt_sec_desc.*"),
             SmbcAclAttr::AllPlus => write!(f, "system.nt_sec_desc.*+"),
             SmbcAclAttr::AllExclude(s) => write!(f, "system.nt_sec_desc.*!{}", separated(s, "!")),
@@ -515,12 +540,12 @@ pub enum SmbcAclValue {
 impl fmt::Display for SmbcAclValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SmbcAclValue::Acl(s) => write!(f, "ACL:{}", format!("{}", s)),
-            SmbcAclValue::AclPlus(s) => write!(f, "ACL+:{}", format!("{}", s)),
-            SmbcAclValue::Group(s) => write!(f, "GROUP:{}", format!("{}", s)),
+            SmbcAclValue::Acl(s) => write!(f, "ACL:{}", s),
+            SmbcAclValue::AclPlus(s) => write!(f, "ACL+:{}", s),
+            SmbcAclValue::Group(s) => write!(f, "GROUP:{}", s),
             SmbcAclValue::GroupPlus(s) => write!(f, "GROUP+:{}", s),
             SmbcAclValue::Revision(i) => write!(f, "REVISION:{}", i),
-            SmbcAclValue::Owner(s) => write!(f, "OWNER:{}", format!("{}", s)),
+            SmbcAclValue::Owner(s) => write!(f, "OWNER:{}", s),
             SmbcAclValue::OwnerPlus(s) => write!(f, "OWNER+:{}", s),
         }
     }
@@ -538,6 +563,7 @@ pub enum AceAtype {
 bitflags! {
     /// Note: currently these flags can only be specified as decimal or hex values.
     /// 9 or 2 is usually the value for directories
+    #[derive(Copy, Clone, Eq, PartialEq, Debug)]
     pub struct AceFlag : i32{
         /// This is usually the flag for files
         const NONE = 0;
@@ -630,12 +656,10 @@ impl ACE {
     pub fn sid(&self) -> SmbcResult<Sid> {
         match self {
             ACE::Numeric(SidType::Numeric(Some(sid)), ..) => Ok(sid.clone()),
-            ACE::Named(SidType::Named(Some(sid)), ..) => {
-                match sid_parse(CompleteByteSlice(sid.as_bytes())) {
-                    Ok((_, parse_sid)) => Ok(parse_sid),
-                    Err(_e) => Err(SmbcError::SmbcXAttrError("Unable to parse SID!".to_string())),
-                }
-            }
+            ACE::Named(SidType::Named(Some(sid)), ..) => match sid_parse(sid.as_bytes()) {
+                Ok((_, parse_sid)) => Ok(parse_sid),
+                Err(_e) => Err(SmbcError::SmbcXAttrError("Unable to parse SID!".to_string())),
+            },
             ACE::Numeric(SidType::Numeric(None), ..) => {
                 error!("SidType should not be None!");
                 Err(SmbcError::SmbcXAttrError("SidType is None!".to_string()))
@@ -694,18 +718,18 @@ impl fmt::Display for ACE {
         match self {
             ACE::Numeric(s, atype, flags, mask) => match atype {
                 AceAtype::ALLOWED => {
-                    write!(f, "{}:0/{}/{}", format!("{}", s), flags.bits(), mask.bits(),)
+                    write!(f, "{}:0/{}/{}", s, flags.bits(), mask.bits(),)
                 }
                 AceAtype::DENIED => {
-                    write!(f, "{}:1/{}/{}", format!("{}", s), flags.bits(), mask.bits())
+                    write!(f, "{}:1/{}/{}", s, flags.bits(), mask.bits())
                 }
             },
             ACE::Named(sid, atype, flags, mask) => match atype {
                 AceAtype::ALLOWED => {
-                    write!(f, "{}:ALLOWED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
+                    write!(f, "{}:ALLOWED/{:x}/{}", sid, flags.bits(), mask)
                 }
                 AceAtype::DENIED => {
-                    write!(f, "{}:DENIED/{:x}/{}", format!("{}", sid), flags.bits(), mask)
+                    write!(f, "{}:DENIED/{:x}/{}", sid, flags.bits(), mask)
                 }
             },
         }
@@ -800,7 +824,7 @@ impl fmt::Display for SmbcXAttrValue {
             }
             SmbcXAttrValue::All(a, d) => {
                 let mut comma_separated = separated(a, "\n");
-                comma_separated.push_str(",");
+                comma_separated.push(',');
                 let dcomma_separated = separated(d, "\t");
                 comma_separated.push_str(&dcomma_separated);
                 write!(f, "{}", comma_separated)
@@ -923,18 +947,24 @@ pub struct SmbcFile {
         (unsafe extern "C" fn(c: *mut SMBCCTX, file: *mut SMBCFILE, st: *mut stat) -> c_int),
     pub ftruncate_fn:
         (unsafe extern "C" fn(c: *mut SMBCCTX, f: *mut SMBCFILE, size: off_t) -> c_int),
-    pub lseek_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          file: *mut SMBCFILE,
-                          offset: off_t,
-                          whence: c_int) -> off_t),
-    pub read_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          file: *mut SMBCFILE,
-                          buf: *mut c_void,
-                          count: usize) -> isize),
-    pub write_fn: (unsafe extern "C" fn(c: *mut SMBCCTX,
-                          file: *mut SMBCFILE,
-                          buf: *const c_void,
-                          count: usize) -> isize),
+    pub lseek_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        offset: off_t,
+        whence: c_int,
+    ) -> off_t),
+    pub read_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *mut c_void,
+        count: usize,
+    ) -> isize),
+    pub write_fn: (unsafe extern "C" fn(
+        c: *mut SMBCCTX,
+        file: *mut SMBCFILE,
+        buf: *const c_void,
+        count: usize,
+    ) -> isize),
 }
 
 impl Drop for SmbcFile {
@@ -994,22 +1024,26 @@ impl Smbc {
                 Ok(e) => e,
                 Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
-            let (wg, un, pw) = (match data.get(0) {
-                                    Some(e) => e.to_string(),
-                                    None => "WORKGROUP".to_string(),
-                                },
-                                match data.get(1) {
-                                    Some(e) => e.to_string(),
-                                    None => "guest".to_string(),
-                                },
-                                match data.get(2) {
-                                    Some(e) => e.to_string(),
-                                    None => "".to_string(),
-                                });
-            smbc_set_credentials_with_fallback(ctx,
-                                               wg.as_ptr() as *const c_char,
-                                               un.as_ptr() as *const c_char,
-                                               pw.as_ptr() as *const c_char);
+            let (wg, un, pw) = (
+                match data.get(0) {
+                    Some(e) => e.to_string(),
+                    None => "WORKGROUP".to_string(),
+                },
+                match data.get(1) {
+                    Some(e) => e.to_string(),
+                    None => "guest".to_string(),
+                },
+                match data.get(2) {
+                    Some(e) => e.to_string(),
+                    None => "".to_string(),
+                },
+            );
+            smbc_set_credentials_with_fallback(
+                ctx,
+                wg.as_ptr() as *const c_char,
+                un.as_ptr() as *const c_char,
+                pw.as_ptr() as *const c_char,
+            );
             smbc_setDebug(ctx, level);
             let ptr: *mut SMBCCTX = match check_mut_ptr(smbc_init_context(ctx)) {
                 Ok(p) => p,
@@ -1020,50 +1054,54 @@ impl Smbc {
                 }
             };
             smbc_set_context(ptr);
-            Ok(Smbc { context: Arc::new(Mutex::new(SmbcPtr(ptr))),
-                      chmod_fn: get_fnptr!(smbc_getFunctionChmod(ptr))?,
-                      close_fn: get_fnptr!(smbc_getFunctionClose(ptr))?,
-                      closedir_fn: get_fnptr!(smbc_getFunctionClosedir(ptr))?,
-                      creat_fn: get_fnptr!(smbc_getFunctionCreat(ptr))?,
-                      fstat_fn: get_fnptr!(smbc_getFunctionFstat(ptr))?,
-                      fstatvfs_fn: get_fnptr!(smbc_getFunctionFstatVFS(ptr))?,
-                      fstatdir_fn: get_fnptr!(smbc_getFunctionFstatdir(ptr))?,
-                      ftruncate_fn: get_fnptr!(smbc_getFunctionFtruncate(ptr))?,
-                      getdents_fn: get_fnptr!(smbc_getFunctionGetdents(ptr))?,
-                      getxattr_fn: get_fnptr!(smbc_getFunctionGetxattr(ptr))?,
-                      listxattr_fn: get_fnptr!(smbc_getFunctionListxattr(ptr))?,
-                      lseek_fn: get_fnptr!(smbc_getFunctionLseek(ptr))?,
-                      lseekdir_fn: get_fnptr!(smbc_getFunctionLseekdir(ptr))?,
-                      mkdir_fn: get_fnptr!(smbc_getFunctionMkdir(ptr))?,
-                      open_fn: get_fnptr!(smbc_getFunctionOpen(ptr))?,
-                      opendir_fn: get_fnptr!(smbc_getFunctionOpendir(ptr))?,
-                      read_fn: get_fnptr!(smbc_getFunctionRead(ptr))?,
-                      readdir_fn: get_fnptr!(smbc_getFunctionReaddir(ptr))?,
-                      removexattr_fn: get_fnptr!(smbc_getFunctionRemovexattr(ptr))?,
-                      rename_fn: get_fnptr!(smbc_getFunctionRename(ptr))?,
-                      rmdir_fn: get_fnptr!(smbc_getFunctionRmdir(ptr))?,
-                      setxattr_fn: get_fnptr!(smbc_getFunctionSetxattr(ptr))?,
-                      stat_fn: get_fnptr!(smbc_getFunctionStat(ptr))?,
-                      statvfs_fn: get_fnptr!(smbc_getFunctionStatVFS(ptr))?,
-                      telldir_fn: get_fnptr!(smbc_getFunctionTelldir(ptr))?,
-                      unlink_fn: get_fnptr!(smbc_getFunctionUnlink(ptr))?,
-                      utimes_fn: get_fnptr!(smbc_getFunctionUtimes(ptr))?,
-                      write_fn: get_fnptr!(smbc_getFunctionWrite(ptr))? })
+            Ok(Smbc {
+                context: Arc::new(Mutex::new(SmbcPtr(ptr))),
+                chmod_fn: get_fnptr!(smbc_getFunctionChmod(ptr))?,
+                close_fn: get_fnptr!(smbc_getFunctionClose(ptr))?,
+                closedir_fn: get_fnptr!(smbc_getFunctionClosedir(ptr))?,
+                creat_fn: get_fnptr!(smbc_getFunctionCreat(ptr))?,
+                fstat_fn: get_fnptr!(smbc_getFunctionFstat(ptr))?,
+                fstatvfs_fn: get_fnptr!(smbc_getFunctionFstatVFS(ptr))?,
+                fstatdir_fn: get_fnptr!(smbc_getFunctionFstatdir(ptr))?,
+                ftruncate_fn: get_fnptr!(smbc_getFunctionFtruncate(ptr))?,
+                getdents_fn: get_fnptr!(smbc_getFunctionGetdents(ptr))?,
+                getxattr_fn: get_fnptr!(smbc_getFunctionGetxattr(ptr))?,
+                listxattr_fn: get_fnptr!(smbc_getFunctionListxattr(ptr))?,
+                lseek_fn: get_fnptr!(smbc_getFunctionLseek(ptr))?,
+                lseekdir_fn: get_fnptr!(smbc_getFunctionLseekdir(ptr))?,
+                mkdir_fn: get_fnptr!(smbc_getFunctionMkdir(ptr))?,
+                open_fn: get_fnptr!(smbc_getFunctionOpen(ptr))?,
+                opendir_fn: get_fnptr!(smbc_getFunctionOpendir(ptr))?,
+                read_fn: get_fnptr!(smbc_getFunctionRead(ptr))?,
+                readdir_fn: get_fnptr!(smbc_getFunctionReaddir(ptr))?,
+                removexattr_fn: get_fnptr!(smbc_getFunctionRemovexattr(ptr))?,
+                rename_fn: get_fnptr!(smbc_getFunctionRename(ptr))?,
+                rmdir_fn: get_fnptr!(smbc_getFunctionRmdir(ptr))?,
+                setxattr_fn: get_fnptr!(smbc_getFunctionSetxattr(ptr))?,
+                stat_fn: get_fnptr!(smbc_getFunctionStat(ptr))?,
+                statvfs_fn: get_fnptr!(smbc_getFunctionStatVFS(ptr))?,
+                telldir_fn: get_fnptr!(smbc_getFunctionTelldir(ptr))?,
+                unlink_fn: get_fnptr!(smbc_getFunctionUnlink(ptr))?,
+                utimes_fn: get_fnptr!(smbc_getFunctionUtimes(ptr))?,
+                write_fn: get_fnptr!(smbc_getFunctionWrite(ptr))?,
+            })
         }
     }
 
     /// An external C function used by new_with_auth in order to provide
     /// user authentication for the Smbc context.
     /// This authentication function includes a context parameter
-    extern "C" fn auth_wrapper(_ctx: *mut SMBCCTX,
-                               srv: *const c_char,
-                               shr: *const c_char,
-                               wg: *mut c_char,
-                               _wglen: c_int,
-                               un: *mut c_char,
-                               _unlen: c_int,
-                               pw: *mut c_char,
-                               _pwlen: c_int) {
+    extern "C" fn auth_wrapper(
+        _ctx: *mut SMBCCTX,
+        srv: *const c_char,
+        shr: *const c_char,
+        wg: *mut c_char,
+        _wglen: c_int,
+        un: *mut c_char,
+        _unlen: c_int,
+        pw: *mut c_char,
+        _pwlen: c_int,
+    ) {
         unsafe {
             let t_srv = CStr::from_ptr(srv);
             let t_shr = CStr::from_ptr(shr);
@@ -1076,22 +1114,25 @@ impl Smbc {
                 Ok(e) => e,
                 Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
-            let (workgroup, username, password) = (match data.get(0) {
-                                                       Some(e) => e.to_string(),
-                                                       None => "WORKGROUP".to_string(),
-                                                   },
-                                                   match data.get(1) {
-                                                       Some(e) => e.to_string(),
-                                                       None => "guest".to_string(),
-                                                   },
-                                                   match data.get(2) {
-                                                       Some(e) => e.to_string(),
-                                                       None => "\n".to_string(),
-                                                   });
-            let (wg_ptr, un_ptr, pw_ptr) =
-                (CString::from_vec_unchecked(workgroup.clone().into_bytes()),
-                 CString::from_vec_unchecked(username.clone().into_bytes()),
-                 CString::from_vec_unchecked(password.clone().into_bytes()));
+            let (workgroup, username, password) = (
+                match data.get(0) {
+                    Some(e) => e.to_string(),
+                    None => "WORKGROUP".to_string(),
+                },
+                match data.get(1) {
+                    Some(e) => e.to_string(),
+                    None => "guest".to_string(),
+                },
+                match data.get(2) {
+                    Some(e) => e.to_string(),
+                    None => "\n".to_string(),
+                },
+            );
+            let (wg_ptr, un_ptr, pw_ptr) = (
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+                CString::from_vec_unchecked(username.clone().into_bytes()),
+                CString::from_vec_unchecked(password.clone().into_bytes()),
+            );
             trace!(target: "smbc", "credentials: {:?}\\{:?} {:?}", &workgroup, &username, &password);
             let (wglen, unlen, pwlen) = (workgroup.len(), username.len(), password.len());
 
@@ -1105,14 +1146,16 @@ impl Smbc {
     ///
     /// An external C function used by new_with_auth in order to provide
     /// user authentication for the Smbc context
-    extern "C" fn set_data_wrapper(srv: *const c_char,
-                                   shr: *const c_char,
-                                   wg: *mut c_char,
-                                   _wglen: c_int,
-                                   un: *mut c_char,
-                                   _unlen: c_int,
-                                   pw: *mut c_char,
-                                   _pwlen: c_int) {
+    extern "C" fn set_data_wrapper(
+        srv: *const c_char,
+        shr: *const c_char,
+        wg: *mut c_char,
+        _wglen: c_int,
+        un: *mut c_char,
+        _unlen: c_int,
+        pw: *mut c_char,
+        _pwlen: c_int,
+    ) {
         unsafe {
             let t_srv = CStr::from_ptr(srv);
             let t_shr = CStr::from_ptr(shr);
@@ -1124,22 +1167,25 @@ impl Smbc {
                 Ok(e) => e,
                 Err(e) => panic!("Error {:?}, Mutex poisoned!", e),
             };
-            let (workgroup, username, password) = (match data.get(0) {
-                                                       Some(e) => e.to_string(),
-                                                       None => "WORKGROUP".to_string(),
-                                                   },
-                                                   match data.get(1) {
-                                                       Some(e) => e.to_string(),
-                                                       None => "guest".to_string(),
-                                                   },
-                                                   match data.get(2) {
-                                                       Some(e) => e.to_string(),
-                                                       None => "".to_string(),
-                                                   });
-            let (wg_ptr, un_ptr, pw_ptr) =
-                (CString::from_vec_unchecked(workgroup.clone().into_bytes()),
-                 CString::from_vec_unchecked(username.clone().into_bytes()),
-                 CString::from_vec_unchecked(password.clone().into_bytes()));
+            let (workgroup, username, password) = (
+                match data.get(0) {
+                    Some(e) => e.to_string(),
+                    None => "WORKGROUP".to_string(),
+                },
+                match data.get(1) {
+                    Some(e) => e.to_string(),
+                    None => "guest".to_string(),
+                },
+                match data.get(2) {
+                    Some(e) => e.to_string(),
+                    None => "".to_string(),
+                },
+            );
+            let (wg_ptr, un_ptr, pw_ptr) = (
+                CString::from_vec_unchecked(workgroup.clone().into_bytes()),
+                CString::from_vec_unchecked(username.clone().into_bytes()),
+                CString::from_vec_unchecked(password.clone().into_bytes()),
+            );
             trace!(target: "smbc", "cred: {:?}\\{:?} {:?}", &workgroup, &username, &password);
             let (wglen, unlen, pwlen) = (workgroup.len(), username.len(), password.len());
 
@@ -1189,13 +1235,15 @@ impl Smbc {
             if (handle as i64) < 0 {
                 trace!(target: "smbc", "Error: neg handle");
             }
-            Ok(SmbcFile { smbc: Arc::clone(&self.context),
-                          handle,
-                          fstat_fn: self.fstat_fn,
-                          ftruncate_fn: self.ftruncate_fn,
-                          lseek_fn: self.lseek_fn,
-                          read_fn: self.read_fn,
-                          write_fn: self.write_fn })
+            Ok(SmbcFile {
+                smbc: Arc::clone(&self.context),
+                handle,
+                fstat_fn: self.fstat_fn,
+                ftruncate_fn: self.ftruncate_fn,
+                lseek_fn: self.lseek_fn,
+                read_fn: self.read_fn,
+                write_fn: self.write_fn,
+            })
         }
     }
 
@@ -1311,13 +1359,15 @@ impl Smbc {
         if (handle as i64) < 0 {
             trace!(target: "smbc", "neg handle");
         }
-        Ok(SmbcFile { smbc: Arc::clone(&self.context),
-                      handle,
-                      fstat_fn: self.fstat_fn,
-                      ftruncate_fn: self.ftruncate_fn,
-                      lseek_fn: self.lseek_fn,
-                      read_fn: self.read_fn,
-                      write_fn: self.write_fn })
+        Ok(SmbcFile {
+            smbc: Arc::clone(&self.context),
+            handle,
+            fstat_fn: self.fstat_fn,
+            ftruncate_fn: self.ftruncate_fn,
+            lseek_fn: self.lseek_fn,
+            read_fn: self.read_fn,
+            write_fn: self.write_fn,
+        })
     }
 
     /// Open a directory used to obtain directory entries.
@@ -1350,11 +1400,13 @@ impl Smbc {
         if (handle as i64) < 0 {
             trace!(target: "smbc", "Error: neg directory handle");
         }
-        Ok(SmbcDirectory { smbc: Arc::clone(&self.context),
-                           handle,
-                           lseekdir_fn: self.lseekdir_fn,
-                           readdir_fn: self.readdir_fn,
-                           telldir_fn: self.telldir_fn })
+        Ok(SmbcDirectory {
+            smbc: Arc::clone(&self.context),
+            handle,
+            lseekdir_fn: self.lseekdir_fn,
+            readdir_fn: self.readdir_fn,
+            telldir_fn: self.telldir_fn,
+        })
     }
 
     /// Please NOTE that MODE does not matter, since the
@@ -1640,11 +1692,13 @@ impl Smbc {
             trace!(target: "smbc", "getxattr failed");
         }
         let res = check_neg_result(unsafe {
-            (self.getxattr_fn)(ptr.0,
-                               path.as_ptr(),
-                               name.as_ptr(),
-                               value.as_ptr() as *const _,
-                               len as _)
+            (self.getxattr_fn)(
+                ptr.0,
+                path.as_ptr(),
+                name.as_ptr(),
+                value.as_ptr() as *const _,
+                len as _,
+            )
         })?;
         if i64::from(res) < 0 {
             trace!(target: "smbc", "getxattr failed");
@@ -1752,12 +1806,13 @@ impl Smbc {
     /// In general, You will probably have an easier time just setting all of the
     /// ACL attributes at once (removing extra), than individually considereing
     /// individually, changing group does not work
-    pub fn setxattr(&self,
-                    path: &Path,
-                    attr: &SmbcXAttr,
-                    value: &SmbcXAttrValue,
-                    flags: XAttrFlags)
-                    -> SmbcResult<()> {
+    pub fn setxattr(
+        &self,
+        path: &Path,
+        attr: &SmbcXAttr,
+        value: &SmbcXAttrValue,
+        flags: XAttrFlags,
+    ) -> SmbcResult<()> {
         let path = CString::new(path.as_os_str().as_bytes())?;
         let len = format!("{}", value).len();
         let name = CString::new(format!("{}", attr).as_bytes())?;
@@ -1773,12 +1828,14 @@ impl Smbc {
             }
         };
         let res = unsafe {
-            (self.setxattr_fn)(ptr.0,
-                               path.as_ptr(),
-                               name.as_ptr(),
-                               value.as_ptr() as *const _,
-                               len as _,
-                               flags.bits() as _)
+            (self.setxattr_fn)(
+                ptr.0,
+                path.as_ptr(),
+                name.as_ptr(),
+                value.as_ptr() as *const _,
+                len as _,
+                flags.bits() as _,
+            )
         };
         if i64::from(res) < 0 {
             trace!(target: "smbc", "setxattr failed");
@@ -2124,7 +2181,7 @@ impl Iterator for SmbcDirectory {
         let ptr = unsafe { (&(*dirent).name) as *const i8 };
         let name = (unsafe { CStr::from_ptr(ptr) }).to_string_lossy().into_owned();
 
-        let filename = percent_decode(&name.as_bytes()).decode_utf8_lossy();
+        let filename = percent_decode(name.as_bytes()).decode_utf8_lossy();
         trace!(target: "smbc", "Filename: {:?}", filename);
 
         let s_type = match unsafe { SmbcType::from((*dirent).smbc_type) } {
@@ -2173,9 +2230,9 @@ pub fn num_minutes(timestamp: timeval) -> i64 {
 
 pub fn num_seconds(timestamp: timeval) -> i64 {
     if timestamp.tv_sec < 0 && timestamp.tv_usec > 0 {
-        (timestamp.tv_sec + 1) as i64
+        (timestamp.tv_sec + 1)
     } else {
-        timestamp.tv_sec as i64
+        timestamp.tv_sec
     }
 }
 
@@ -2208,9 +2265,9 @@ pub fn stat_minutes(timestamp: timespec) -> i64 {
 
 pub fn stat_seconds(timestamp: timespec) -> i64 {
     if timestamp.tv_sec < 0 && timestamp.tv_nsec > 0 {
-        (timestamp.tv_sec + 1) as i64
+        (timestamp.tv_sec + 1)
     } else {
-        timestamp.tv_sec as i64
+        timestamp.tv_sec
     }
 }
 
@@ -2235,14 +2292,18 @@ fn stat_micros_mod_sec(timestamp: timespec) -> __syscall_slong_t {
 
 pub fn print_timeval_secs(timestamp: timeval) {
     let time = num_seconds(timestamp);
-    let naive_datetime = NaiveDateTime::from_timestamp(time, 0);
-    let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-    println!("{:?}", datetime);
+    if let Some(datetime) = DateTime::from_timestamp(time, 0) {
+        println!("{:?}", datetime);
+    } else {
+        println!("Invalid date");
+    }
 }
 
 pub fn print_timespec_secs(timestamp: timespec) {
     let time = stat_seconds(timestamp);
-    let naive_datetime = NaiveDateTime::from_timestamp(time, 0);
-    let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-    println!("{:?}", datetime);
+    if let Some(datetime) = DateTime::from_timestamp(time, 0) {
+        println!("{:?}", datetime);
+    } else {
+        println!("Invalid date");
+    }
 }
